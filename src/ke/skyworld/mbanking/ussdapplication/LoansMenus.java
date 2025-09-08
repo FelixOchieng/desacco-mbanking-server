@@ -70,7 +70,7 @@ public interface LoansMenus {
                         break;
                     }
                     case "LOANS_TERMS_AND_CONDITIONS": {
-                        theUSSDResponse = theAppMenus.displayMenu_TermsAndConditionsMenus(theUSSDRequest, theParam);
+                        theUSSDResponse = theAppMenus.displayMenu_TermsAndConditionsPrivacyMenus(theUSSDRequest, theParam);
                         break;
                     }
 

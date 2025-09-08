@@ -29,6 +29,7 @@ public class AppConstants {
     public final static String strExitCollectionAccount = "VEND0058";
 
     public final static String strSettingParamName = "ORGANIZATION_MBANKING_SETTINGS";
+    public final static String strPINResetCode = "55";
 
     public enum SPProviderCode {
         SAFARICOM(101),
@@ -429,6 +430,9 @@ public class AppConstants {
         FORGOT_PIN_ID_NO(USSDDataType.INIT.getValue() + "-FORGOT_PIN(ID_NO)"),
         FORGOT_PIN_DOB(USSDDataType.FORGOT_PIN_ID_NO.getValue() + "-FORGOT_PIN(DOB)"),
         FORGOT_PIN_END(USSDDataType.FORGOT_PIN_DOB.getValue() + "-FORGOT_PIN(END)"),
+
+        TERMS_AND_CONDITIONS(USSDDataType.LOGIN_PIN.getValue() + "-TERMS_AND_CONDITIONS(TC)"),
+        TERMS_AND_CONDITIONS_END(USSDDataType.TERMS_AND_CONDITIONS.getValue() + "-TERMS_AND_CONDITIONS(END)"),
 
 
         //SET_PIN

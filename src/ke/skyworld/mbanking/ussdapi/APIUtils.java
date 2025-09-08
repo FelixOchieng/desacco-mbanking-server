@@ -6,6 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.xml.bind.DatatypeConverter;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.query_manager.query.FilterPredicate;
+import ke.co.skyworld.smp.query_repository.Repository;
+import ke.co.skyworld.smp.utility_items.constants.StringRefs;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingUtils;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
@@ -61,6 +66,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Stream;
 
+import static ke.co.skyworld.smp.query_manager.SystemTables.TBL_CUSTOMER_REGISTER_SIGNATORIES;
 import static ke.skyworld.mbanking.ussdapplication.AppConstants.HONORIFICS;
 
 
@@ -1352,6 +1358,31 @@ public class APIUtils {
             System.out.println("nodeToString Transformer Exception");
         }
         return sw.toString();
+    }
+
+    public static HashMap<String, String> getUserIdentifierDetails(String strUserPhoneNumber) {
+        HashMap<String, String> userIdentifierDetails = new HashMap<>();
+
+        TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                TBL_CUSTOMER_REGISTER_SIGNATORIES, "identifier_type, identifier, full_name, primary_email_address",
+                new FilterPredicate("primary_mobile_number = :primary_mobile_number"),
+                new FlexicoreHashMap().addQueryArgument(":primary_mobile_number", strUserPhoneNumber));
+
+        if (signatoryDetailsWrapper.hasErrors()) {
+            return userIdentifierDetails;
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+        if (signatoryDetailsMap != null && !signatoryDetailsMap.isEmpty()) {
+            userIdentifierDetails.put("identifier_type", signatoryDetailsMap.getStringValue("identifier_type"));
+            userIdentifierDetails.put("identifier", signatoryDetailsMap.getStringValue("identifier"));
+            userIdentifierDetails.put("full_name", signatoryDetailsMap.getStringValue("full_name"));
+            userIdentifierDetails.put("primary_email_address", signatoryDetailsMap.getStringValue("primary_email_address"));
+            return userIdentifierDetails;
+        }
+
+        return userIdentifierDetails;
     }
 
 }

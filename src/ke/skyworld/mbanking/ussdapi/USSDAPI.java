@@ -170,52 +170,105 @@ public class USSDAPI {
         return resultWrapper;
     }
 
-    public APIConstants.CheckUserReturnVal checkUser(String theUserMSISDN) {
+    // public APIConstants.CheckUserReturnVal checkUser(String theUserMSISDN) {
+    //
+    //     APIConstants.CheckUserReturnVal rVal = APIConstants.CheckUserReturnVal.ERROR;
+    //     try {
+    //         String strSIMID = "";
+    //         String strCheckStatus = CBSAPI.userCheck(theUserMSISDN, strSIMID, true, "");
+    //
+    //         switch (strCheckStatus) {
+    //             case "ACTIVE": {
+    //                 rVal = APIConstants.CheckUserReturnVal.ACTIVE;
+    //                 break;
+    //             }
+    //             case "INVALID_IMSI": {
+    //                 rVal = APIConstants.CheckUserReturnVal.INVALID_IMSI;
+    //                 break;
+    //             }
+    //             case "INVALID_IMEI": {
+    //                 rVal = APIConstants.CheckUserReturnVal.INVALID_IMEI;
+    //                 break;
+    //             }
+    //             case "BLOCKED": {
+    //                 rVal = APIConstants.CheckUserReturnVal.BLOCKED;
+    //                 break;
+    //             }
+    //             case "SUSPENDED": {
+    //                 rVal = APIConstants.CheckUserReturnVal.SUSPENDED;
+    //                 break;
+    //             }
+    //             case "NOT_FOUND": {
+    //                 rVal = APIConstants.CheckUserReturnVal.NOT_FOUND;
+    //                 break;
+    //             }
+    //             case "ERROR": {
+    //                 rVal = APIConstants.CheckUserReturnVal.ERROR;
+    //                 break;
+    //             }
+    //             default: {
+    //                 rVal = APIConstants.CheckUserReturnVal.ERROR;
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //         System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+    //         }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+    //         e.printStackTrace();
+    //     }
+    //     return rVal;
+    // }
 
-        APIConstants.CheckUserReturnVal rVal = APIConstants.CheckUserReturnVal.ERROR;
+    public TransactionWrapper<FlexicoreHashMap> userLogin(USSDRequest theUSSDRequest) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
         try {
-            String strSIMID = "";
-            String strCheckStatus = CBSAPI.userCheck(theUserMSISDN, strSIMID, true, "");
 
-            switch (strCheckStatus) {
-                case "ACTIVE": {
-                    rVal = APIConstants.CheckUserReturnVal.ACTIVE;
-                    break;
-                }
-                case "INVALID_IMSI": {
-                    rVal = APIConstants.CheckUserReturnVal.INVALID_IMSI;
-                    break;
-                }
-                case "INVALID_IMEI": {
-                    rVal = APIConstants.CheckUserReturnVal.INVALID_IMEI;
-                    break;
-                }
-                case "BLOCKED": {
-                    rVal = APIConstants.CheckUserReturnVal.BLOCKED;
-                    break;
-                }
-                case "SUSPENDED": {
-                    rVal = APIConstants.CheckUserReturnVal.SUSPENDED;
-                    break;
-                }
-                case "NOT_FOUND": {
-                    rVal = APIConstants.CheckUserReturnVal.NOT_FOUND;
-                    break;
-                }
-                case "ERROR": {
-                    rVal = APIConstants.CheckUserReturnVal.ERROR;
-                    break;
-                }
-                default: {
-                    rVal = APIConstants.CheckUserReturnVal.ERROR;
-                }
-            }
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+
+            String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
+
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+
+            return CBSAPI.userLogin(strReferenceKey, "MSISDN", strMobileNumber, strPIN, "IMSI", strSIMID, USSDAPIConstants.MobileChannel.USSD);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+        return resultWrapper;
+    }
+
+    public TransactionWrapper<FlexicoreHashMap> getCurrentUserDetails(USSDRequest theUSSDRequest) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            return CBSAPI.getCurrentUserDetails(strReferenceKey, "MSISDN", strMobileNumber, "IMSI", strSIMID);
+
         } catch (Exception e) {
             System.err.println(this.getClass().getSimpleName() + "." + new Object() {
             }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
-            e.printStackTrace();
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
         }
-        return rVal;
+        return resultWrapper;
     }
 
     public String getUserAuthActionExpiryTime(USSDRequest theUSSDRequest) {
@@ -241,135 +294,158 @@ public class USSDAPI {
         return rVal;
     }
 
-    public LinkedHashMap<String, String> userLogin(USSDRequest theUSSDRequest) {
-        LinkedHashMap<String, String> loginReturnVal = new LinkedHashMap<>();
-        String rVal;
-        loginReturnVal.put("LOGIN_RETURN_VALUE", "ERROR");
-        loginReturnVal.put("LOGIN_ATTEMPT_MESSAGE", "");
-        String loginAttemptMessage = "";
+    public TransactionWrapper<FlexicoreHashMap> acceptTermsAndConditions(USSDRequest theUSSDRequest, FlexicoreHashMap mobileBankingMap) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
         try {
             String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
             String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
 
-            String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
-
-            String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
-            strPIN = APIUtils.hashPIN(strPIN, strMobileNumber);
-
-            String strNavResponse = CBSAPI.ussdLogin(strMobileNumber, strPIN, strSIMID, true, strUSSDSessionID);
-
-            System.out.println("strNavResponse: " + strNavResponse);
-
-
-            String strLoginStatus = strNavResponse.split(":::")[0];
-            switch (strLoginStatus) {
-                case "SET_PIN": {
-                    rVal = "SET_PIN";
-                    break;
-                }
-                case "SUCCESS": {
-                    rVal = "SUCCESS";
-                    break;
-                }
-                case "INCORRECT_PIN": {
-                    rVal = "INCORRECT_PIN";
-
-                    int intUserLoginAttemptsCount = Integer.parseInt(strNavResponse.split(":::")[1]);
-                    String strName = strNavResponse.split(":::")[2];
-
-                    LinkedHashMap<String, String> hmMSGPlaceholders = new LinkedHashMap<>();
-
-                    hmMSGPlaceholders.put("[MOBILE_NUMBER]", strMobileNumber);
-                    hmMSGPlaceholders.put("[LOGIN_ATTEMPTS]", String.valueOf(intUserLoginAttemptsCount));
-                    hmMSGPlaceholders.put("[FIRST_NAME]", strName);
-
-                    String strAuthenticationParametersXML = USSDLocalParameters.getClientXMLParameters();
-
-                    HashMap<String, HashMap<String, String>> hmMBankingResponse = MBankingXMLFactory.getAuthenticationAttemptsAction(intUserLoginAttemptsCount, hmMSGPlaceholders, strAuthenticationParametersXML, MBankingConstants.AuthType.PASSWORD);
-
-                    if (!hmMBankingResponse.isEmpty()) {
-                        HashMap<String, String> hmCurrentAttempt = hmMBankingResponse.get("CURRENT_ATTEMPT");
-                        HashMap<String, String> hmNextAttempt = hmMBankingResponse.get("NEXT_ATTEMPT");
-
-                        String strUnit = hmCurrentAttempt.get("UNIT") != null ? hmCurrentAttempt.get("UNIT") : "";
-                        String strAction = hmCurrentAttempt.get("ACTION") != null ? hmCurrentAttempt.get("ACTION") : "WARN";
-                        String strDuration = hmCurrentAttempt.get("DURATION") != null ? hmCurrentAttempt.get("DURATION") : "";
-                        String strDescription = hmCurrentAttempt.get("NAME") != null ? hmCurrentAttempt.get("NAME") : "";
-
-                        int intUnit = Calendar.DAY_OF_MONTH;
-                        int intDuration = 0;
-                        if (strDuration != null) {
-                            if (!strDuration.equals("")) {
-                                intDuration = Integer.parseInt(strDuration);
-                            }
-                        }
-
-                        if (strAction != null) {
-                            if (strAction.equalsIgnoreCase("SUSPEND")) {
-                                if (strUnit.equalsIgnoreCase("SECOND")) {
-                                    intUnit = Calendar.SECOND;
-                                } else if (strUnit.equalsIgnoreCase("MINUTE")) {
-                                    intUnit = Calendar.MINUTE;
-                                } else if (strUnit.equalsIgnoreCase("HOUR")) {
-                                    intUnit = Calendar.HOUR;
-                                } else if (strUnit.equalsIgnoreCase("DAY")) {
-                                    intUnit = Calendar.DAY_OF_YEAR;
-                                } else if (strUnit.equalsIgnoreCase("MONTH")) {
-                                    intUnit = Calendar.MONTH;
-                                } else if (strUnit.equalsIgnoreCase("YEAR")) {
-                                    intUnit = Calendar.YEAR;
-                                }
-                                rVal = "SUSPENDED";
-                            }
-                            if (!hmNextAttempt.isEmpty()) {
-                                String futureLoginAction = hmNextAttempt.get("ACTION");
-                                String futureLoginActionDurationUnit = hmNextAttempt.get("UNIT");
-                                String friendlyFutureActionDuration = hmNextAttempt.get("DURATION") + " " + futureLoginActionDurationUnit + "(S)";
-                                String attemptsRemainingToFutureLoginAction = hmNextAttempt.get("ATTEMPTS_REMAINING");
-
-                                String currentLoginAction = hmCurrentAttempt.get("ACTION");
-                                if (currentLoginAction == null) currentLoginAction = "NONE";
-
-                                //Override Incorrect PIN message
-                                if (futureLoginAction.equals("SUSPEND") && !currentLoginAction.equals("SUSPEND")) {
-                                    loginAttemptMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your mobile banking account is SUSPENDED for " + friendlyFutureActionDuration + ".\nPlease enter your PIN:";
-                                } else if (futureLoginAction.equals("LOCK") && !currentLoginAction.equals("LOCK")) {
-                                    loginAttemptMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your mobile banking account is LOCKED. Please enter your PIN:";
-                                }
-                            }
-                        }
-
-                        DatatypeFactory datatypeFactory = DatatypeFactory.newInstance();
-                        GregorianCalendar gregorianCalendar = new GregorianCalendar();
-                        gregorianCalendar.add(intUnit, intDuration);
-                        XMLGregorianCalendar gcValidity = datatypeFactory.newXMLGregorianCalendar(gregorianCalendar);
-
-                        String strResponse = CBSAPI.updateAuthAttempts(strMobileNumber, "LOGIN", intUserLoginAttemptsCount, strDescription, strAction, gcValidity, false);
-                        System.out.println("Response: " + strResponse);
-                    }
-
-                    break;
-                }
-                case "ERROR": {
-                    rVal = "ERROR";
-                    break;
-                }
-                default: {
-                    rVal = "ERROR";
-                }
-            }
-
-            loginReturnVal.put("LOGIN_RETURN_VALUE", rVal);
-            loginReturnVal.put("LOGIN_ATTEMPT_MESSAGE", loginAttemptMessage);
+            return CBSAPI.acceptTermsAndConditions(mobileBankingMap, USSDAPIConstants.MobileChannel.USSD);
 
         } catch (Exception e) {
             System.err.println(this.getClass().getSimpleName() + "." + new Object() {
             }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
-            e.printStackTrace();
-        }
 
-        return loginReturnVal;
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+        return resultWrapper;
     }
+
+    // public LinkedHashMap<String, String> userLogin(USSDRequest theUSSDRequest) {
+    //     LinkedHashMap<String, String> loginReturnVal = new LinkedHashMap<>();
+    //     String rVal;
+    //     loginReturnVal.put("LOGIN_RETURN_VALUE", "ERROR");
+    //     loginReturnVal.put("LOGIN_ATTEMPT_MESSAGE", "");
+    //     String loginAttemptMessage = "";
+    //     try {
+    //         String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+    //         String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+    //
+    //         String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
+    //
+    //         String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
+    //         strPIN = APIUtils.hashPIN(strPIN, strMobileNumber);
+    //
+    //         String strNavResponse = CBSAPI.ussdLogin(strMobileNumber, strPIN, strSIMID, true, strUSSDSessionID);
+    //
+    //         System.out.println("strNavResponse: " + strNavResponse);
+    //
+    //
+    //         String strLoginStatus = strNavResponse.split(":::")[0];
+    //         switch (strLoginStatus) {
+    //             case "SET_PIN": {
+    //                 rVal = "SET_PIN";
+    //                 break;
+    //             }
+    //             case "SUCCESS": {
+    //                 rVal = "SUCCESS";
+    //                 break;
+    //             }
+    //             case "INCORRECT_PIN": {
+    //                 rVal = "INCORRECT_PIN";
+    //
+    //                 int intUserLoginAttemptsCount = Integer.parseInt(strNavResponse.split(":::")[1]);
+    //                 String strName = strNavResponse.split(":::")[2];
+    //
+    //                 LinkedHashMap<String, String> hmMSGPlaceholders = new LinkedHashMap<>();
+    //
+    //                 hmMSGPlaceholders.put("[MOBILE_NUMBER]", strMobileNumber);
+    //                 hmMSGPlaceholders.put("[LOGIN_ATTEMPTS]", String.valueOf(intUserLoginAttemptsCount));
+    //                 hmMSGPlaceholders.put("[FIRST_NAME]", strName);
+    //
+    //                 String strAuthenticationParametersXML = USSDLocalParameters.getClientXMLParameters();
+    //
+    //                 HashMap<String, HashMap<String, String>> hmMBankingResponse = MBankingXMLFactory.getAuthenticationAttemptsAction(intUserLoginAttemptsCount, hmMSGPlaceholders, strAuthenticationParametersXML, MBankingConstants.AuthType.PASSWORD);
+    //
+    //                 if (!hmMBankingResponse.isEmpty()) {
+    //                     HashMap<String, String> hmCurrentAttempt = hmMBankingResponse.get("CURRENT_ATTEMPT");
+    //                     HashMap<String, String> hmNextAttempt = hmMBankingResponse.get("NEXT_ATTEMPT");
+    //
+    //                     String strUnit = hmCurrentAttempt.get("UNIT") != null ? hmCurrentAttempt.get("UNIT") : "";
+    //                     String strAction = hmCurrentAttempt.get("ACTION") != null ? hmCurrentAttempt.get("ACTION") : "WARN";
+    //                     String strDuration = hmCurrentAttempt.get("DURATION") != null ? hmCurrentAttempt.get("DURATION") : "";
+    //                     String strDescription = hmCurrentAttempt.get("NAME") != null ? hmCurrentAttempt.get("NAME") : "";
+    //
+    //                     int intUnit = Calendar.DAY_OF_MONTH;
+    //                     int intDuration = 0;
+    //                     if (strDuration != null) {
+    //                         if (!strDuration.equals("")) {
+    //                             intDuration = Integer.parseInt(strDuration);
+    //                         }
+    //                     }
+    //
+    //                     if (strAction != null) {
+    //                         if (strAction.equalsIgnoreCase("SUSPEND")) {
+    //                             if (strUnit.equalsIgnoreCase("SECOND")) {
+    //                                 intUnit = Calendar.SECOND;
+    //                             } else if (strUnit.equalsIgnoreCase("MINUTE")) {
+    //                                 intUnit = Calendar.MINUTE;
+    //                             } else if (strUnit.equalsIgnoreCase("HOUR")) {
+    //                                 intUnit = Calendar.HOUR;
+    //                             } else if (strUnit.equalsIgnoreCase("DAY")) {
+    //                                 intUnit = Calendar.DAY_OF_YEAR;
+    //                             } else if (strUnit.equalsIgnoreCase("MONTH")) {
+    //                                 intUnit = Calendar.MONTH;
+    //                             } else if (strUnit.equalsIgnoreCase("YEAR")) {
+    //                                 intUnit = Calendar.YEAR;
+    //                             }
+    //                             rVal = "SUSPENDED";
+    //                         }
+    //                         if (!hmNextAttempt.isEmpty()) {
+    //                             String futureLoginAction = hmNextAttempt.get("ACTION");
+    //                             String futureLoginActionDurationUnit = hmNextAttempt.get("UNIT");
+    //                             String friendlyFutureActionDuration = hmNextAttempt.get("DURATION") + " " + futureLoginActionDurationUnit + "(S)";
+    //                             String attemptsRemainingToFutureLoginAction = hmNextAttempt.get("ATTEMPTS_REMAINING");
+    //
+    //                             String currentLoginAction = hmCurrentAttempt.get("ACTION");
+    //                             if (currentLoginAction == null) currentLoginAction = "NONE";
+    //
+    //                             //Override Incorrect PIN message
+    //                             if (futureLoginAction.equals("SUSPEND") && !currentLoginAction.equals("SUSPEND")) {
+    //                                 loginAttemptMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your mobile banking account is SUSPENDED for " + friendlyFutureActionDuration + ".\nPlease enter your PIN:";
+    //                             } else if (futureLoginAction.equals("LOCK") && !currentLoginAction.equals("LOCK")) {
+    //                                 loginAttemptMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your mobile banking account is LOCKED. Please enter your PIN:";
+    //                             }
+    //                         }
+    //                     }
+    //
+    //                     DatatypeFactory datatypeFactory = DatatypeFactory.newInstance();
+    //                     GregorianCalendar gregorianCalendar = new GregorianCalendar();
+    //                     gregorianCalendar.add(intUnit, intDuration);
+    //                     XMLGregorianCalendar gcValidity = datatypeFactory.newXMLGregorianCalendar(gregorianCalendar);
+    //
+    //                     String strResponse = CBSAPI.updateAuthAttempts(strMobileNumber, "LOGIN", intUserLoginAttemptsCount, strDescription, strAction, gcValidity, false);
+    //                     System.out.println("Response: " + strResponse);
+    //                 }
+    //
+    //                 break;
+    //             }
+    //             case "ERROR": {
+    //                 rVal = "ERROR";
+    //                 break;
+    //             }
+    //             default: {
+    //                 rVal = "ERROR";
+    //             }
+    //         }
+    //
+    //         loginReturnVal.put("LOGIN_RETURN_VALUE", rVal);
+    //         loginReturnVal.put("LOGIN_ATTEMPT_MESSAGE", loginAttemptMessage);
+    //
+    //     } catch (Exception e) {
+    //         System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+    //         }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+    //         e.printStackTrace();
+    //     }
+    //
+    //     return loginReturnVal;
+    // }
 
     public APIConstants.SetPINReturnVal setUserPIN(USSDRequest theUSSDRequest) {
 

@@ -5,19 +5,16 @@ import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.co.skyworld.smp.query_manager.util.SystemParameters;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import ke.co.skyworld.smp.utility_items.memory.InMemoryCache;
-import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
 import ke.skyworld.lib.mbanking.ussd.*;
 import ke.skyworld.lib.mbanking.utils.Utils;
-import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.nav.cbs.DeSaccoCBS;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
-import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
+import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import org.w3c.dom.Document;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.Random;
 
 public interface HomeMenus {
@@ -177,7 +174,6 @@ public interface HomeMenus {
         return theUSSDResponse;
     }
 
-
     default USSDResponse displayMenu_InitAction(USSDRequest theUSSDRequest, String theParam, String theHeader) {
         USSDResponseSELECT theUSSDResponse = new USSDResponseSELECT();
         try {
@@ -207,8 +203,6 @@ public interface HomeMenus {
     }
 
     default USSDResponse displayMenu_General(USSDRequest theUSSDRequest, String theParam) {
-
-
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         USSDAPI theUSSDAPI = new USSDAPI();
@@ -246,7 +240,6 @@ public interface HomeMenus {
     }
 
     default USSDResponse displayMenu_ResetPin(USSDRequest theUSSDRequest, String theParam) {
-
         USSDResponse theUSSDResponse = null;
         USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
@@ -396,94 +389,154 @@ public interface HomeMenus {
         return theUSSDResponse;
     }
 
+    // default USSDResponse displayMenu_Login(USSDRequest theUSSDRequest, String theParam) {
+    //     USSDAPI theUSSDAPI = new USSDAPI();
+    //     USSDResponse theUSSDResponse = null;
+    //     AppMenus theAppMenus = new AppMenus();
+    //
+    //     try {
+    //
+    //         String strPINResponse = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
+    //
+    //         if (strPINResponse == null || strPINResponse.isBlank()) {
+    //
+    //             String strResponse = AppConstants.strHomeMenuHeader + ".\n{Invalid input}. Please enter your PIN to proceed.\n(Forgot PIN? Reply with 55)";
+    //             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOGIN_PIN, USSDConstants.USSDInputType.STRING, "NO");
+    //
+    //         } else if (strPINResponse.equalsIgnoreCase("55")) {
+    //             theUSSDResponse = theAppMenus.displayMenu_ResetPin(theUSSDRequest, "MENU");
+    //
+    //         } else {
+    //             LinkedHashMap<String, String> hmLoginReturnVal = theUSSDAPI.userLogin(theUSSDRequest);
+    //             String rvalLoginReturnVal = hmLoginReturnVal.get("LOGIN_RETURN_VALUE");
+    //             switch (rvalLoginReturnVal) {
+    //
+    //                 case "SUCCESS": {
+    //
+    //
+    //                     String strHeader = AppConstants.strHomeMenuHeader;
+    //
+    //                     try {
+    //                         //Get Member Name and Service Number
+    //                         String strAccountXML = CBSAPI.getAccountTransferRecipientXML(String.valueOf(theUSSDRequest.getUSSDMobileNo()), "Mobile");
+    //
+    //                         if (!strAccountXML.isEmpty()) {
+    //                             String memberName = MBankingXMLFactory.getXPathValueFromXMLString("/Account/AccountName", strAccountXML.trim());
+    //                             memberName = APIUtils.shortenMemberNameProvidedName(memberName);
+    //                             String memberNumber = MBankingXMLFactory.getXPathValueFromXMLString("/Account/MemberNo", strAccountXML.trim());
+    //                             strHeader = "Welcome " + memberName + " (" + memberNumber + ")";
+    //                         }
+    //                     } catch (Exception e) {
+    //                         System.err.println(USSDAPI.class.getSimpleName() + "." + new Object() {
+    //                         }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+    //                         e.printStackTrace();
+    //                     }
+    //
+    //                     theUSSDResponse = theAppMenus.displayMenu_MainInMenus(theUSSDRequest, theParam, strHeader);
+    //                     break;
+    //                 }
+    //                 case "INCORRECT_PIN": {
+    //                     String strResponse = "{Sorry the PIN provided is NOT correct}\nPlease enter your PIN to proceed:";
+    //
+    //                     String strLoginAttemptMessage = hmLoginReturnVal.get("LOGIN_ATTEMPT_MESSAGE");
+    //                     if (!strLoginAttemptMessage.equals("")) {
+    //                         strResponse = strLoginAttemptMessage;
+    //                     }
+    //
+    //                     theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOGIN_PIN, USSDConstants.USSDInputType.STRING, "NO");
+    //                     break;
+    //                 }
+    //                 case "SET_PIN": {
+    //                     theUSSDResponse = theAppMenus.displayMenu_SetPIN(theUSSDRequest, theParam);
+    //                     break;
+    //                 }
+    //                 case "BLOCKED": {
+    //                     String strResponse = "Dear member, your account has been blocked from accessing mobile banking services. Please visit one of our branches for assistance or contact us.";
+    //                     theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+    //                     break;
+    //                 }
+    //                 case "SUSPENDED": {
+    //                     String strResponse = "Sorry, your account is suspended from using " + AppConstants.strSACCOName + " mobile banking services. Please contact us for assistance.";
+    //                     String strTryAgainIn = theUSSDAPI.getUserAuthActionExpiryTime(theUSSDRequest);
+    //                     if (!strTryAgainIn.equals("")) {
+    //                         strResponse = "Sorry, your account is suspended from using " + AppConstants.strSACCOName + " mobile banking services. " + strTryAgainIn;
+    //                     }
+    //                     theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+    //                     break;
+    //                 }
+    //                 case "ERROR": {
+    //                     String strResponse = "Sorry, this service is not available at the moment. Please try again later. If the problem persist kindly contact us for assistance.";
+    //                     theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+    //                     break;
+    //                 }
+    //                 default: {
+    //                     String strResponse = strResponse = "Sorry, this service is not available at the moment. Please try again later. If the problem persist kindly contact us for assistance. UNKNOWN ERROR";
+    //                     theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+    //                     break;
+    //                 }
+    //             }
+    //         }
+    //
+    //     } catch (Exception e) {
+    //         System.err.println(e.getMessage());
+    //     } finally {
+    //         theUSSDAPI = null;
+    //         theAppMenus = null;
+    //     }
+    //     return theUSSDResponse;
+    // }
+
     default USSDResponse displayMenu_Login(USSDRequest theUSSDRequest, String theParam) {
         USSDAPI theUSSDAPI = new USSDAPI();
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
 
         try {
+            String strResponse;
+            String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
 
-            String strPINResponse = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
+            if (strPIN == null || strPIN.isEmpty()) {
 
-            if (strPINResponse == null || strPINResponse.isBlank()) {
-
-                String strResponse = AppConstants.strHomeMenuHeader + ".\n{Invalid input}. Please enter your PIN to proceed.\n(Forgot PIN? Reply with 55)";
+                strResponse = AppConstants.strHomeMenuHeader + ".\n{Invalid input}. Please enter your PIN to proceed.\n(Forgot PIN? Reply with " + AppConstants.strPINResetCode + ")";
                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOGIN_PIN, USSDConstants.USSDInputType.STRING, "NO");
 
-            } else if (strPINResponse.equalsIgnoreCase("55")) {
+            } else if (strPIN.trim().equalsIgnoreCase(AppConstants.strPINResetCode)) {
                 theUSSDResponse = theAppMenus.displayMenu_ResetPin(theUSSDRequest, "MENU");
-
             } else {
-                LinkedHashMap<String, String> hmLoginReturnVal = theUSSDAPI.userLogin(theUSSDRequest);
-                String rvalLoginReturnVal = hmLoginReturnVal.get("LOGIN_RETURN_VALUE");
-                switch (rvalLoginReturnVal) {
 
-                    case "SUCCESS": {
+                TransactionWrapper<FlexicoreHashMap> userLoginWrapper = theUSSDAPI.userLogin(theUSSDRequest);
+                FlexicoreHashMap userLoginMap = userLoginWrapper.getSingleRecord();
 
+                if (userLoginWrapper.hasErrors()) {
+                    strResponse = userLoginMap.getStringValue("display_message");
 
-                        String strHeader = AppConstants.strHomeMenuHeader;
+                    Object cbsApiReturnVal = userLoginMap.getStringValue("cbs_api_return_val");
+                    USSDAPIConstants.Condition endSession = userLoginMap.getValue("end_session");
 
-                        try {
-                            //Get Member Name and Service Number
-                            String strAccountXML = CBSAPI.getAccountTransferRecipientXML(String.valueOf(theUSSDRequest.getUSSDMobileNo()), "Mobile");
-
-                            if (!strAccountXML.isEmpty()) {
-                                String memberName = MBankingXMLFactory.getXPathValueFromXMLString("/Account/AccountName", strAccountXML.trim());
-                                memberName = APIUtils.shortenMemberNameProvidedName(memberName);
-                                String memberNumber = MBankingXMLFactory.getXPathValueFromXMLString("/Account/MemberNo", strAccountXML.trim());
-                                strHeader = "Welcome " + memberName + " (" + memberNumber + ")";
-                            }
-                        } catch (Exception e) {
-                            System.err.println(USSDAPI.class.getSimpleName() + "." + new Object() {
-                            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
-                            e.printStackTrace();
-                        }
-
-                        theUSSDResponse = theAppMenus.displayMenu_MainInMenus(theUSSDRequest, theParam, strHeader);
-                        break;
-                    }
-                    case "INCORRECT_PIN": {
-                        String strResponse = "{Sorry the PIN provided is NOT correct}\nPlease enter your PIN to proceed:";
-
-                        String strLoginAttemptMessage = hmLoginReturnVal.get("LOGIN_ATTEMPT_MESSAGE");
-                        if (!strLoginAttemptMessage.equals("")) {
-                            strResponse = strLoginAttemptMessage;
-                        }
-
+                    if (endSession == USSDAPIConstants.Condition.YES) {
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+                    } else {
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOGIN_PIN, USSDConstants.USSDInputType.STRING, "NO");
-                        break;
                     }
-                    case "SET_PIN": {
-                        theUSSDResponse = theAppMenus.displayMenu_SetPIN(theUSSDRequest, theParam);
-                        break;
-                    }
-                    case "BLOCKED": {
-                        String strResponse = "Dear member, your account has been blocked from accessing mobile banking services. Please visit one of our branches for assistance or contact us.";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
-                        break;
-                    }
-                    case "SUSPENDED": {
-                        String strResponse = "Sorry, your account is suspended from using " + AppConstants.strSACCOName + " mobile banking services. Please contact us for assistance.";
-                        String strTryAgainIn = theUSSDAPI.getUserAuthActionExpiryTime(theUSSDRequest);
-                        if (!strTryAgainIn.equals("")) {
-                            strResponse = "Sorry, your account is suspended from using " + AppConstants.strSACCOName + " mobile banking services. " + strTryAgainIn;
+                } else {
+                    FlexicoreHashMap mobileBankingMap = userLoginMap.getValue("mobile_register_details");
+                    String strAcceptedTermsAndConditions = mobileBankingMap.getStringValue("accepted_terms_and_conditions");
+                    String strUSSDActivationKYC = mobileBankingMap.getStringValue("ussd_activation_kyc");
+                    String strPINStatus = mobileBankingMap.getStringValueOrIfNull("pin_status", "");
+
+                    if (strAcceptedTermsAndConditions.equalsIgnoreCase("NO")) {
+                        String strHeader = "Privacy Statement\nI confirm that I have read and understood the Privacy Statement of using " + AppConstants.strMobileBankingName + " Mobile Banking Services\n";
+                        theUSSDResponse = displayMenu_TermsAndConditionsPrivacyMenus(theUSSDRequest, strHeader);
+                    } else {
+                        if (strUSSDActivationKYC.equalsIgnoreCase("ENABLED") || strPINStatus.equalsIgnoreCase("RESET")) {
+                            theUSSDResponse = theAppMenus.displayMenu_SetPIN(theUSSDRequest, "PIN");
+                        } else {
+                            theUSSDResponse = theAppMenus.displayMenu_MainInMenus(theUSSDRequest, theParam, AppConstants.strHomeMenuHeader);
                         }
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
-                        break;
                     }
-                    case "ERROR": {
-                        String strResponse = "Sorry, this service is not available at the moment. Please try again later. If the problem persist kindly contact us for assistance.";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
-                        break;
-                    }
-                    default: {
-                        String strResponse = strResponse = "Sorry, this service is not available at the moment. Please try again later. If the problem persist kindly contact us for assistance. UNKNOWN ERROR";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
-                        break;
-                    }
+
                 }
             }
-
         } catch (Exception e) {
             System.err.println(e.getMessage());
         } finally {
@@ -529,6 +582,121 @@ public interface HomeMenus {
 
         return theUSSDResponse;
 
+    }
+
+    default USSDResponse displayMenu_TermsAndConditionsPrivacyMenus(USSDRequest theUSSDRequest, String theHeader) {
+
+        USSDResponse theUSSDResponse = null;
+        USSDAPI theUSSDAPI = new USSDAPI();
+        AppMenus theAppMenus = new AppMenus();
+
+        try {
+
+            // String strResponse = "Privacy Statement\nI confirm that I have read and understood the Privacy Statement of using " + AppConstants.strMobileBankingName + " Mobile Banking Services\n";
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "YES", "1: Yes");
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "NO", "2: No");
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS, "NO", theArrayListUSSDSelectOption);
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_TermsAndConditions() ERROR : " + e.getMessage());
+        } finally {
+            theUSSDAPI = null;
+            theAppMenus = null;
+        }
+        return theUSSDResponse;
+    }
+
+    default USSDResponse displayMenu_TermsAndConditions(USSDRequest theUSSDRequest, String theParam) {
+        USSDResponse theUSSDResponse = null;
+        USSDAPI theUSSDAPI = new USSDAPI();
+        AppMenus theAppMenus = new AppMenus();
+
+        try {
+            switch (theParam) {
+                case "TC": {
+                    String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.TERMS_AND_CONDITIONS.name());
+
+                    if (strConfirmation.trim().isEmpty()) {
+                        String strHeader = "Privacy Statement\n{Select a valid option}\nI confirm that I have read and understood the Privacy Statement of using " + AppConstants.strMobileBankingName + " Mobile Banking Services\n";
+                        theUSSDResponse = displayMenu_TermsAndConditionsPrivacyMenus(theUSSDRequest, strHeader);
+                    } else if (strConfirmation.equalsIgnoreCase("YES")) {
+
+                        TransactionWrapper<FlexicoreHashMap> userDetailsWrapper = theUSSDAPI.getCurrentUserDetails(theUSSDRequest);
+                        FlexicoreHashMap userDetailsMap = userDetailsWrapper.getSingleRecord();
+
+                        if (userDetailsWrapper.hasErrors()) {
+                            String strResponse = userDetailsMap.getStringValue("display_message");
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS_END, "NO", theArrayListUSSDSelectOption);
+
+                        } else {
+
+                            FlexicoreHashMap mobileBankingMap = userDetailsMap.getValue("mobile_register_details");
+
+                            TransactionWrapper<FlexicoreHashMap> acceptTermsAndConditionsWrapper = theUSSDAPI.acceptTermsAndConditions(theUSSDRequest, mobileBankingMap);
+                            FlexicoreHashMap acceptTermsAndConditionsMap = acceptTermsAndConditionsWrapper.getSingleRecord();
+                            if (acceptTermsAndConditionsWrapper.hasErrors()) {
+                                // USSDAPIConstants.Condition endSession = acceptTermsAndConditionsMap.getValue("end_session");
+                                String strResponse = acceptTermsAndConditionsMap.getStringValue("display_message");
+
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS_END, "NO", theArrayListUSSDSelectOption);
+
+                            } else {
+
+                                String strUSSDActivationKYC = mobileBankingMap.getStringValue("ussd_activation_kyc");
+
+                                if (strUSSDActivationKYC.equalsIgnoreCase("ENABLED")) {
+                                    theUSSDResponse = theAppMenus.displayMenu_SetPIN(theUSSDRequest, "PIN");
+                                } else {
+                                    theUSSDResponse = theAppMenus.displayMenu_MainInMenus(theUSSDRequest, theParam, AppConstants.strHomeMenuHeader);
+                                }
+                            }
+                        }
+                    } else {
+                        String strResponse = "Privacy Statement\nSorry, you did not the accept the privacy Statement for using " + AppConstants.strMobileBankingName + ".\n";
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "00", "_LINK", AppConstants.USSDDataType.INIT.name(), "00: Login");
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS_END, "NO", theArrayListUSSDSelectOption);
+                    }
+                    break;
+                }
+                case "END": {
+                    String strResponse = "Privacy Statement\n{Invalid menu selected}\nPlease select an option below\n";
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                    // LINK OPTION - Force user to login after error at the end.
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "00", "_LINK", AppConstants.USSDDataType.INIT.name(), "00: Login");
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS_END, "NO", theArrayListUSSDSelectOption);
+                    break;
+                }
+                default: {
+                    System.err.println("theAppMenus.displayMenu_TermsAndConditions() UNKNOWN PARAM ERROR : theParam = " + theParam);
+
+                    String strResponse = "Privacy Statement\n{Sorry, an error has occurred while processing Privacy Statement}\n";
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                    // LINK OPTION
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "00", "_LINK", AppConstants.USSDDataType.INIT.name(), "00: Login");
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithExit(theUSSDRequest, AppConstants.USSDDataType.TERMS_AND_CONDITIONS_END, "NO", theArrayListUSSDSelectOption);
+
+                    break;
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_TermsAndConditions() ERROR : " + e.getMessage());
+        } finally {
+            theUSSDAPI = null;
+            theAppMenus = null;
+        }
+        return theUSSDResponse;
     }
 
     default USSDResponse displayMenu_MainIn(USSDRequest theUSSDRequest, String theParam) {

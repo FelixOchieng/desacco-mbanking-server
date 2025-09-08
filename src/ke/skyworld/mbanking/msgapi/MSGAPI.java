@@ -7,7 +7,10 @@ import ke.skyworld.lib.mbanking.pesa.PESAConstants;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
+import java.util.HashMap;
 import java.util.UUID;
+
+import static ke.skyworld.mbanking.ussdapi.APIUtils.getUserIdentifierDetails;
 
 public class MSGAPI {
 
@@ -63,22 +66,20 @@ public class MSGAPI {
                 USSDAPI theUSSDAPI = new USSDAPI();
 
                 //Check User
-                APIConstants.CheckUserReturnVal checkUserReturnVal = theUSSDAPI.checkUser(str_MT_MSG_Receiver);
+                // APIConstants.CheckUserReturnVal checkUserReturnVal = theUSSDAPI.checkUser(str_MT_MSG_Receiver);
+                HashMap<String, String> userIdentifierDetails = getUserIdentifierDetails(str_MT_MSG_Receiver);
+
 
                 String checkUserMessage = "";
 
-                if(checkUserReturnVal == APIConstants.CheckUserReturnVal.NOT_FOUND){
+                if (userIdentifierDetails == null || userIdentifierDetails.isEmpty()) {
                     checkUserMessage = "Dear user, You are not registered for our mobile banking services. Please contact your nearest branch for assistance.";
                     sendMSG(MSGConstants.MSGMode.SAF, str_MT_MSG_ReceiverType, str_MT_MSG_Receiver, checkUserMessage, strRequestApplication,
                             strSourceApplication, intPriority, finalStrCategory, MSGConstants.Sensitivity.NORMAL, strRequestCorrelationID, strSourceReference);
-                } else if(checkUserReturnVal == APIConstants.CheckUserReturnVal.ERROR){
+                } else {
                     checkUserMessage = "Dear member, an error occurred while processing your request. Please try again later.";
                     sendMSG(MSGConstants.MSGMode.SAF, str_MT_MSG_ReceiverType, str_MT_MSG_Receiver, checkUserMessage, strRequestApplication,
                             strSourceApplication, intPriority, finalStrCategory, MSGConstants.Sensitivity.NORMAL, strRequestCorrelationID, strSourceReference);
-                } else {
-                    //theUSSDAPI.mOAccountBalanceEnquiry(strSender);
-                    /*sendMSG(MSGConstants.MSGMode.SAF, str_MT_MSG_ReceiverType, str_MT_MSG_Receiver, checkUserMessage, strRequestApplication,
-                            strSourceApplication, intPriority, finalStrCategory, MSGConstants.Sensitivity.NORMAL, strRequestCorrelationID, strSourceReference);*/
                 }
 
             });

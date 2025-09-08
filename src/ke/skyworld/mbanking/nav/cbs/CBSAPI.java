@@ -1,6 +1,7 @@
 package ke.skyworld.mbanking.nav.cbs;
 
 import ke.co.skyworld.smp.authentication_manager.MobileBankingCryptography;
+import ke.co.skyworld.smp.comm_channels_manager.EmailTemplates;
 import ke.co.skyworld.smp.query_manager.SystemTables;
 import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
 import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
@@ -10,6 +11,10 @@ import ke.co.skyworld.smp.query_repository.Repository;
 import ke.co.skyworld.smp.utility_items.DateTime;
 import ke.co.skyworld.smp.utility_items.constants.StringRefs;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
+import ke.co.skyworld.smp.utility_items.memory.JvmManager;
+import ke.skyworld.lib.mbanking.core.MBankingConstants;
+import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
+import ke.skyworld.mbanking.channelutils.EmailMessaging;
 import ke.skyworld.mbanking.nav.Navision;
 import ke.skyworld.mbanking.nav.utils.HttpSOAP;
 import ke.skyworld.mbanking.nav.utils.LoggingLevel;
@@ -17,6 +22,7 @@ import ke.skyworld.mbanking.nav.utils.XmlObject;
 import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import ke.skyworld.mbanking.ussdapplication.AppConstants;
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.xml.datatype.DatatypeFactory;
@@ -24,7 +30,9 @@ import javax.xml.datatype.XMLGregorianCalendar;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 
 import static ke.co.skyworld.smp.query_manager.SystemTables.TBL_MOBILE_BANKING_REGISTER;
 import static ke.skyworld.mbanking.nav.utils.XmlObject.getNamespaceContext;
@@ -560,6 +568,499 @@ public class CBSAPI {
 
         }
 
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> userLogin(String theReferenceKey, String theIdentifierType, String theIdentifier, String thePIN, String theDeviceIdentifierType, String theDeviceIdentifier, USSDAPIConstants.MobileChannel theDevice) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> checkUserResultMapWrapper = checkUser(theReferenceKey, theIdentifierType, theIdentifier, theDeviceIdentifierType, theDeviceIdentifier);
+            FlexicoreHashMap checkUserResultMap = checkUserResultMapWrapper.getSingleRecord();
+
+            if (checkUserResultMapWrapper.hasErrors()) {
+                if (theDevice == USSDAPIConstants.MobileChannel.MOBILE_APP) {
+
+                    if (!checkUserResultMap.getStringValueOrIfNull("cbs_api_return_val", "")
+                            .equalsIgnoreCase("INVALID_APP_ID")) {
+
+                        return checkUserResultMapWrapper;
+                    }
+                } else {
+                    return checkUserResultMapWrapper;
+                }
+            }
+
+            FlexicoreHashMap signatoryDetailsMap = checkUserResultMap.getValue("signatory_details");
+            FlexicoreHashMap mobileBankingMap = checkUserResultMap.getValue("mobile_register_details");
+
+            FlexicoreHashMap theUpdateLoginParamsMap = new FlexicoreHashMap();
+
+            String strProperPIN = mobileBankingMap.getStringValue("pin");
+
+            thePIN = MobileBankingCryptography.hashPIN(signatoryDetailsMap.getStringValue("primary_mobile_number"), thePIN);
+
+            if (thePIN.equalsIgnoreCase(strProperPIN)) {
+                String strPinSettings = SystemParameters.getParameter("PIN_PARAMETERS");
+                Document document = XmlUtils.parseXml(strPinSettings);
+
+                Element elPinSettings = XmlUtils.getElementNodeFromXpath(document, "/PIN_PARAMETERS/PIN[@TYPE='" + mobileBankingMap.getStringValue("pin_status") + "']");
+
+                if (mobileBankingMap.getStringValue("pin_status").equalsIgnoreCase("ACTIVE")) {
+                    String strExpiry = elPinSettings.getAttribute("EXPIRY");
+                    String strExpiryTimeunit = elPinSettings.getAttribute("EXPIRY_TIMEUNIT");
+
+                    Date datePinSetDate = DateTime.convertDateStringToDate(mobileBankingMap.getStringValue("pin_set_date"));
+
+                    Date expirationDate = DateTime.add(datePinSetDate, Integer.parseInt(strExpiry), DateTime.getPeriodUnit(strExpiryTimeunit));
+
+                    if (new Date().after(expirationDate)) {
+                        resultWrapper.setHasErrors(true);
+
+                        FlexicoreHashMap resultMap = new FlexicoreHashMap().putValue("end_session",
+                                        USSDAPIConstants.Condition.YES)
+                                .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.EXPIRED_PIN);
+
+                        if (theDevice == USSDAPIConstants.MobileChannel.USSD) {
+                            resultMap.putValue("display_message", "Your current PIN has expired. Please contact the SACCO to have your PIN reset.");
+                        } else {
+                            resultMap.putValue("display_message", "Your current Password has expired. Please contact the SACCO to have your PIN reset.");
+                            resultMap.putValue("title", "Password Expired");
+                        }
+
+                        resultWrapper.setData(resultMap);
+
+                        return resultWrapper;
+                    }
+                }
+
+                theUpdateLoginParamsMap.put("login_attempts", 0);
+                theUpdateLoginParamsMap.put("login_auth_action", "NONE");
+                theUpdateLoginParamsMap.put("login_auth_action_valid_date", null);
+                theUpdateLoginParamsMap.put("login_auth_flag", null);
+                theUpdateLoginParamsMap.put("last_login_date", DateTime.getCurrentDateTime());
+                theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+                if (theDeviceIdentifier != null && !theDeviceIdentifier.isBlank()) {
+                    if (theDeviceIdentifierType.equalsIgnoreCase("IMSI") || theDeviceIdentifierType.equalsIgnoreCase("ICCID")) {
+                        String strSimIdentifier = mobileBankingMap.getStringValue("sim_identifier");
+
+                        if (strSimIdentifier == null || strSimIdentifier.isBlank()) {
+                            theUpdateLoginParamsMap.put("sim_identifier", theDeviceIdentifier);
+                            theUpdateLoginParamsMap.put("sim_identifier_set_date", DateTime.getCurrentDateTime());
+                        }
+
+                    } /*else if (theDeviceIdentifierType.equalsIgnoreCase("IMEI") || theDeviceIdentifierType.equalsIgnoreCase("APP_ID")) {
+                        String strAppIdentifier = mobileBankingMap.getStringValue("app_identifier");
+
+                        if (strAppIdentifier == null || strAppIdentifier.isBlank()) {
+                            theUpdateLoginParamsMap.put("app_identifier", theDeviceIdentifier);
+                            theUpdateLoginParamsMap.put("app_identifier_set_date", DateTime.getCurrentDateTime());
+                        }
+                    }*/
+                }
+
+                mobileBankingMap.copyFrom(theUpdateLoginParamsMap);
+
+                String integrityHash = MobileBankingCryptography.calculateIntegrityHash(mobileBankingMap);
+                theUpdateLoginParamsMap.putValue("integrity_hash", integrityHash);
+
+                TransactionWrapper<?> updateWrapper = Repository.update(
+                        StringRefs.SENTINEL,
+                        TBL_MOBILE_BANKING_REGISTER,
+                        theUpdateLoginParamsMap,
+                        new FilterPredicate("mobile_register_id = :mobile_register_id"),
+                        new FlexicoreHashMap()
+                                .addQueryArgument(":mobile_register_id", mobileBankingMap.getStringValue("mobile_register_id"))
+                );
+
+                if (updateWrapper.hasErrors()) {
+                    resultWrapper.setHasErrors(true);
+                    resultWrapper.setData(new FlexicoreHashMap()
+                            .putValue("end_session", USSDAPIConstants.Condition.YES)
+                            .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                            .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                            .putValue("title", "Error"));
+                }
+
+                resultWrapper.setData(checkUserResultMap);
+
+                if (theDevice == USSDAPIConstants.MobileChannel.MOBILE_APP) {
+                    if (checkUserResultMap.getStringValueOrIfNull("cbs_api_return_val", "").equalsIgnoreCase("INVALID_APP_ID")) {
+                        return checkUserResultMapWrapper;
+                    }
+                }
+
+                return resultWrapper;
+            } else {
+
+                FlexicoreHashMap resultAuthMap = new FlexicoreHashMap();
+
+                int loginAttempts = Integer.parseInt(mobileBankingMap.getStringValue("login_attempts"));
+                loginAttempts = loginAttempts + 1;
+
+                String strMessage;
+
+                String strTitle = "Invalid Credentials";
+
+                if (theDevice == USSDAPIConstants.MobileChannel.USSD) {
+                    strMessage = "{Sorry the PIN provided is NOT correct}\nPlease enter your PIN to proceed:";
+                } else {
+                    strMessage = "You have entered an incorrect username or password, please try again.";
+                }
+
+                USSDAPIConstants.Condition endSession = USSDAPIConstants.Condition.NO;
+
+                resultAuthMap.putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.INCORRECT_PIN)
+                        .putValue("display_message", strMessage)
+                        .putValue("title", strTitle);
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(resultAuthMap);
+
+                String strFirstName = signatoryDetailsMap.getStringValue("full_name").trim().split("\\s")[0];
+
+                HashMap<String, String> hmMSGPlaceholders = new HashMap<>();
+                hmMSGPlaceholders.put("[MOBILE_NUMBER]", signatoryDetailsMap.getStringValue("primary_mobile_number"));
+                hmMSGPlaceholders.put("[LOGIN_ATTEMPTS]", String.valueOf(loginAttempts));
+                // hmMSGPlaceholders.put("[FIRST_NAME]", strFirstName);
+                hmMSGPlaceholders.put("[FIRST_NAME]", "Member");
+
+                String strPasswordAttemptParameters = SystemParameters.getParameter("MBANKING_AUTH_ATTEMPTS");
+
+                HashMap<String, HashMap<String, String>> authenticationAttemptsAction = MBankingXMLFactory.getAuthenticationAttemptsAction(
+                        loginAttempts,
+                        hmMSGPlaceholders,
+                        strPasswordAttemptParameters,
+                        MBankingConstants.AuthType.PASSWORD);
+
+                HashMap<String, String> currentAuthenticationAttemptsAction = authenticationAttemptsAction.get("CURRENT_ATTEMPT");
+                HashMap<String, String> futureAuthenticationAttemptsAction = authenticationAttemptsAction.get("NEXT_ATTEMPT");
+
+                // Check if action is needed
+                if (!currentAuthenticationAttemptsAction.isEmpty()) {
+                    String loginAction = currentAuthenticationAttemptsAction.get("ACTION");
+                    String loginActionTag = currentAuthenticationAttemptsAction.get("NAME");
+
+                    // Check action
+                    switch (loginAction) {
+                        case "SUSPEND": {
+                            int loginActionDuration = Integer.parseInt(currentAuthenticationAttemptsAction.get("DURATION"));
+                            String loginActionDurationUnit = currentAuthenticationAttemptsAction.get("UNIT");
+                            loginActionDuration = DateTime.convertToSeconds(loginActionDuration, loginActionDurationUnit);
+                            Date loginActionValidDate = DateTime.add(loginActionDuration, Calendar.SECOND);
+                            String strLoginActionValidDate = DateTime.convertDateToDateString(loginActionValidDate);
+
+                            theUpdateLoginParamsMap.put("login_attempts", loginAttempts);
+                            theUpdateLoginParamsMap.put("login_auth_action", loginAction);
+                            theUpdateLoginParamsMap.put("login_auth_action_valid_date", strLoginActionValidDate);
+                            theUpdateLoginParamsMap.put("login_auth_flag", loginActionTag);
+                            theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+                            String friendlyActionDuration = currentAuthenticationAttemptsAction.get("DURATION") + " " + loginActionDurationUnit;
+                            if (Integer.parseInt(currentAuthenticationAttemptsAction.get("DURATION")) != 1)
+                                friendlyActionDuration = friendlyActionDuration + "S";
+
+                            strTitle = "Account Suspended";
+                            strMessage = "Your " + AppConstants.strMobileBankingName + " account has been SUSPENDED for " + friendlyActionDuration + " due to many Login Attempts. Please try again later.";
+                            endSession = USSDAPIConstants.Condition.YES;
+
+                            break;
+                        }
+                        case "LOCK": {
+
+                            theUpdateLoginParamsMap.put("login_attempts", loginAttempts);
+                            theUpdateLoginParamsMap.put("login_auth_action", loginAction);
+                            theUpdateLoginParamsMap.put("login_auth_action_valid_date", null);
+                            theUpdateLoginParamsMap.put("login_auth_flag", loginActionTag);
+                            theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+                            strTitle = "Account Locked";
+                            strMessage = "Your " + AppConstants.strMobileBankingName + " account has been LOCKED due to many Login Attempts." + getTrailerMessage();
+                            endSession = USSDAPIConstants.Condition.YES;
+
+                            break;
+                        }
+                        default: {
+                            theUpdateLoginParamsMap.put("login_attempts", loginAttempts);
+                            theUpdateLoginParamsMap.put("login_auth_action", loginAction);
+                            theUpdateLoginParamsMap.put("login_auth_action_valid_date", null);
+                            theUpdateLoginParamsMap.put("login_auth_flag", loginActionTag);
+                            theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+                            endSession = USSDAPIConstants.Condition.YES;
+                            break;
+                        }
+                    }
+                }
+
+                String currentLoginAction = currentAuthenticationAttemptsAction.get("ACTION");
+                if (currentLoginAction == null) currentLoginAction = "NONE";
+
+                if (!currentLoginAction.equals("LOCK")) {
+
+                    if (!currentLoginAction.equals("SUSPEND")) {
+
+                        // Check future action
+                        if (!futureAuthenticationAttemptsAction.isEmpty()) {
+                            String futureLoginAction = futureAuthenticationAttemptsAction.get("ACTION");
+                            String futureLoginActionDurationUnit = futureAuthenticationAttemptsAction.get("UNIT");
+                            String friendlyFutureActionDuration = futureAuthenticationAttemptsAction.get("DURATION") + " " + futureLoginActionDurationUnit;
+
+                            String attemptsRemainingToFutureLoginAction = futureAuthenticationAttemptsAction.get("ATTEMPTS_REMAINING");
+
+                            // Override Incorrect PIN message
+                            if (futureLoginAction.equals("SUSPEND") && !currentLoginAction.equals("SUSPEND")) {
+                                int intFutureActionDuration = Integer.parseInt(futureAuthenticationAttemptsAction.get("DURATION"));
+                                if (intFutureActionDuration != 1)
+                                    friendlyFutureActionDuration = friendlyFutureActionDuration + "S";
+
+                                int intAttemptsRemainingToFutureLoginAction = Integer.parseInt(attemptsRemainingToFutureLoginAction);
+                                String strAttempts = "attempt";
+                                if (intAttemptsRemainingToFutureLoginAction != 1) strAttempts = strAttempts + "s";
+
+                                strTitle = "Invalid Credentials";
+
+                                if (theDevice == USSDAPIConstants.MobileChannel.USSD) {
+                                    strMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your " + AppConstants.strMobileBankingName + " account is SUSPENDED for " + friendlyFutureActionDuration + ".\nPlease enter your PIN:";
+                                } else {
+                                    strMessage = "You have " + attemptsRemainingToFutureLoginAction + " " + strAttempts + " before your " + AppConstants.strMobileBankingName + " account is SUSPENDED for " + friendlyFutureActionDuration + ".";
+                                }
+
+                                endSession = USSDAPIConstants.Condition.NO;
+
+                            } else if (futureLoginAction.equals("LOCK")) {
+                                int intAttemptsRemainingToFutureLoginAction = Integer.parseInt(attemptsRemainingToFutureLoginAction);
+                                String strAttempts = "attempt";
+                                if (intAttemptsRemainingToFutureLoginAction != 1) strAttempts = strAttempts + "s";
+
+                                strTitle = "Invalid Credentials";
+                                if (theDevice == USSDAPIConstants.MobileChannel.USSD) {
+                                    strMessage = "{Sorry the PIN provided is NOT correct}\nYou have " + attemptsRemainingToFutureLoginAction + " attempt(s) before your " + AppConstants.strMobileBankingName + " account is LOCKED.\nPlease enter your PIN:";
+
+                                } else {
+                                    strMessage = "You have " + attemptsRemainingToFutureLoginAction + " " + strAttempts + " before your " + AppConstants.strMobileBankingName + " account is LOCKED.";
+                                }
+
+                                endSession = USSDAPIConstants.Condition.NO;
+                            }
+                        }
+                    }
+                } else {
+
+                    String primaryEmailAddress = signatoryDetailsMap.getStringValue("primary_email_address");
+
+                    if (primaryEmailAddress != null && !primaryEmailAddress.isBlank()) {
+
+                        int finalLoginAttempts = loginAttempts;
+                        new Thread(() -> {
+                            String strEmail = EmailTemplates.mobileBankingAccountLockedTemplate();
+                            strEmail = strEmail.replace("[FULL_NAME]", signatoryDetailsMap.getStringValue("full_name"));
+                            strEmail = strEmail.replace("[ATTEMPT_TYPE]", "Login");
+                            strEmail = strEmail.replace("[ATTEMPTS]", String.valueOf(finalLoginAttempts));
+                            strEmail = strEmail.replace("[PHONE_NUMBER]", signatoryDetailsMap.getStringValue("primary_mobile_number"));
+
+                            EmailMessaging.sendEmail(primaryEmailAddress, "" + AppConstants.strMobileBankingName + " Account LOCKED", strEmail, "ACCOUNT_LOCKED");
+                        }).start();
+                    }
+                }
+
+                theUpdateLoginParamsMap.put("login_attempts", loginAttempts);
+                theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+                resultAuthMap.putValue("end_session", endSession);
+                resultAuthMap.putValue("display_message", strMessage);
+                resultAuthMap.putValue("title", strTitle);
+
+                mobileBankingMap.copyFrom(theUpdateLoginParamsMap);
+
+                String integrityHash = MobileBankingCryptography.calculateIntegrityHash(mobileBankingMap);
+                theUpdateLoginParamsMap.putValue("integrity_hash", integrityHash);
+
+                TransactionWrapper<?> updateWrapper = Repository.update(
+                        StringRefs.SENTINEL,
+                        TBL_MOBILE_BANKING_REGISTER,
+                        theUpdateLoginParamsMap,
+                        new FilterPredicate("mobile_register_id = :mobile_register_id"),
+                        new FlexicoreHashMap()
+                                .addQueryArgument(":mobile_register_id", mobileBankingMap.getStringValue("mobile_register_id"))
+                );
+
+                if (updateWrapper.hasErrors()) {
+                    resultAuthMap
+                            .putValue("end_session", USSDAPIConstants.Condition.YES)
+                            .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                            .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                            .putValue("title", "Error");
+
+                }
+
+                JvmManager.gc(checkUserResultMap, checkUserResultMapWrapper);
+
+                return resultWrapper;
+            }
+
+        } catch (Exception e) {
+            System.err.println("CBSAPI.userLogin(): " + e.getMessage());
+            e.printStackTrace();
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                    .putValue("title", "Error"));
+        }
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> getCurrentUserDetails(String theReferenceKey, String theIdentifierType, String theIdentifier, String theDeviceIdentifierType, String theDeviceIdentifier) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            FilterPredicate signatoryFilterPredicate = null;
+            FlexicoreHashMap queryArguments = new FlexicoreHashMap();
+
+            if ("MSISDN".equals(theIdentifierType)) {
+                signatoryFilterPredicate = new FilterPredicate("primary_mobile_number = :primary_mobile_number");
+                queryArguments.addQueryArgument(":primary_mobile_number", theIdentifier);
+            } else {
+                signatoryFilterPredicate = new FilterPredicate("primary_identity_type = :primary_identity_type AND primary_identity_no = :primary_identity_no");
+                queryArguments.addQueryArgument(":primary_identity_type", theIdentifierType);
+                queryArguments.addQueryArgument(":primary_identity_no", theIdentifier);
+            }
+
+            TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                    SystemTables.TBL_CUSTOMER_REGISTER_SIGNATORIES, signatoryFilterPredicate, queryArguments);
+
+            if (signatoryDetailsWrapper.displayQueriesExecuted().hasErrors()) {
+                signatoryDetailsWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+
+                signatoryDetailsWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                        .putValue("title", "An error occurred"));
+
+                return signatoryDetailsWrapper;
+            }
+
+            FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+            if (signatoryDetailsMap == null || signatoryDetailsMap.isEmpty()) {
+                signatoryDetailsWrapper.setHasErrors(true);
+                signatoryDetailsWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.NOT_FOUND)
+                        .putValue("display_message", "Sorry, you are not registered to use " + AppConstants.strMobileBankingName + "." + getTrailerMessage())
+                        .putValue("title", "Account not found"));
+
+                return signatoryDetailsWrapper;
+            }
+
+            String strSignatoryId = signatoryDetailsMap.getStringValue("signatory_id");
+
+            TransactionWrapper<FlexicoreHashMap> mobileMappingDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                    SystemTables.TBL_MOBILE_BANKING_REGISTER,
+                    new FilterPredicate("signatory_id = :signatory_id"),
+                    new FlexicoreHashMap().addQueryArgument(":signatory_id", strSignatoryId));
+
+            if (mobileMappingDetailsWrapper.hasErrors()) {
+                mobileMappingDetailsWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+
+                mobileMappingDetailsWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                        .putValue("title", "An error occurred"));
+
+                return mobileMappingDetailsWrapper;
+            }
+
+            FlexicoreHashMap mobileBankingDetailsMap = mobileMappingDetailsWrapper.getSingleRecord();
+
+            if (mobileBankingDetailsMap == null || mobileBankingDetailsMap.isEmpty()) {
+                mobileMappingDetailsWrapper.setHasErrors(true);
+                mobileMappingDetailsWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.NOT_FOUND)
+                        .putValue("display_message", "Sorry, you are not registered to use " + AppConstants.strMobileBankingName + "." + getTrailerMessage())
+                        .putValue("title", "An error occurred"));
+
+                return signatoryDetailsWrapper;
+            }
+
+            FlexicoreHashMap userMobileBankingDetailsMap = new FlexicoreHashMap();
+            userMobileBankingDetailsMap.putValue("signatory_details", signatoryDetailsMap);
+            userMobileBankingDetailsMap.putValue("mobile_register_details", mobileBankingDetailsMap);
+
+            resultWrapper.setData(userMobileBankingDetailsMap);
+
+        } catch (Exception e) {
+            System.err.println("CBSAPI.getCurrentUserDetails(): " + e.getMessage());
+            e.printStackTrace();
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                    .putValue("title", "An error occurred"));
+
+        }
+
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> acceptTermsAndConditions(FlexicoreHashMap mobileBankingMap, USSDAPIConstants.MobileChannel theDevice) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            FlexicoreHashMap theUpdateLoginParamsMap = new FlexicoreHashMap();
+
+            theUpdateLoginParamsMap.put("accepted_terms_and_conditions", "YES");
+            theUpdateLoginParamsMap.put("channel_accepted_terms_and_conditions", theDevice.getValue());
+            theUpdateLoginParamsMap.put("date_accepted_terms_and_conditions", DateTime.getCurrentDateTime());
+            theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+            mobileBankingMap.copyFrom(theUpdateLoginParamsMap);
+
+            String integrityHash = MobileBankingCryptography.calculateIntegrityHash(mobileBankingMap);
+            theUpdateLoginParamsMap.putValue("integrity_hash", integrityHash);
+
+            TransactionWrapper<?> updateWrapper = Repository.update(
+                    StringRefs.SENTINEL,
+                    TBL_MOBILE_BANKING_REGISTER,
+                    theUpdateLoginParamsMap,
+                    new FilterPredicate("mobile_register_id = :mobile_register_id"),
+                    new FlexicoreHashMap()
+                            .addQueryArgument(":mobile_register_id", mobileBankingMap.getStringValue("mobile_register_id"))
+            );
+
+            if (updateWrapper.hasErrors()) {
+                System.err.println("CBSAPI.acceptTermsAndConditions() - Update ERROR: " + updateWrapper.getErrors() + "\n");
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                        .putValue("title", "An error occurred"));
+            }
+
+            return resultWrapper;
+
+        } catch (Exception e) {
+            System.err.println("CBSAPI.acceptTermsAndConditions(): " + e.getMessage());
+            e.printStackTrace();
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                    .putValue("title", "An error occurred"));
+        }
         return resultWrapper;
     }
 

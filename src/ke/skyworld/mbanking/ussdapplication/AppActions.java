@@ -20,6 +20,10 @@ public class AppActions {
         return new AppMenus().displayMenu_Login(theUSSDRequest, theParam);
     }
 
+    public static USSDResponse action_TERMS_AND_CONDITIONS(USSDRequest theUSSDRequest, String theParam){
+        return new AppMenus().displayMenu_TermsAndConditions(theUSSDRequest, theParam);
+    }
+
     public static USSDResponse action_GENERAL(USSDRequest theUSSDRequest, String theParam) {
         return new AppMenus().displayMenu_General(theUSSDRequest, theParam);
     }
@@ -133,7 +137,7 @@ public class AppActions {
 
 
     public static USSDResponse action_LOAN_TERMS_AND_CONDITIONS(USSDRequest theUSSDRequest, String theParam) {
-        return new AppMenus().displayMenu_TermsAndConditionsMenus(theUSSDRequest, theParam);
+        return new AppMenus().displayMenu_TermsAndConditionsPrivacyMenus(theUSSDRequest, theParam);
     }
 
     public static USSDResponse action_LOAN_REPAYMENT(USSDRequest theUSSDRequest, String theParam) {
