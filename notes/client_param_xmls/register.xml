@@ -1,0 +1,10 @@
+<OTHER_DETAILS>
+    <CUSTOM_PARAMETERS />
+    <REGISTER_PARAMETERS>
+        <SERVICE_URLS>
+            <SERVICE_URL>http://41.209.39.33:8088/register_interface/global/register</SERVICE_URL>
+            <SERVICE_URL>http://41.209.39.33:8088/register_interface/global/register</SERVICE_URL>
+            <SERVICE_URL>http://41.209.39.33:8088/register_interface/global/register</SERVICE_URL>
+        </SERVICE_URLS>
+    </REGISTER_PARAMETERS>
+</OTHER_DETAILS>

@@ -1,0 +1,141 @@
+<OTHER_DETAILS>
+    <CUSTOM_PARAMETERS>
+        <SERVICE_CONFIGS>
+            <AMOUNT_LIMITS>
+                <CASH_WITHDRAWAL>
+                    <MIN_AMOUNT>50</MIN_AMOUNT>
+                    <MAX_AMOUNT>150000</MAX_AMOUNT>
+                </CASH_WITHDRAWAL>
+                <AIRTIME_PURCHASE>
+                    <MIN_AMOUNT>10</MIN_AMOUNT>
+                    <MAX_AMOUNT>10000</MAX_AMOUNT>
+                </AIRTIME_PURCHASE>
+                <PAY_BILL>
+                    <MIN_AMOUNT>10</MIN_AMOUNT>
+                    <MAX_AMOUNT>100000</MAX_AMOUNT>
+                </PAY_BILL>
+                <EXTERNAL_FUNDS_TRANSFER>
+                    <MIN_AMOUNT>50</MIN_AMOUNT>
+                    <MAX_AMOUNT>300000</MAX_AMOUNT>
+                </EXTERNAL_FUNDS_TRANSFER>
+                <INTERNAL_FUNDS_TRANSFER>
+                    <MIN_AMOUNT>1</MIN_AMOUNT>
+                    <MAX_AMOUNT>1000000</MAX_AMOUNT>
+                </INTERNAL_FUNDS_TRANSFER>
+                <DEPOSIT>
+                    <MIN_AMOUNT>1</MIN_AMOUNT>
+                    <MAX_AMOUNT>150000</MAX_AMOUNT>
+                </DEPOSIT>
+                <APPLY_LOAN>
+                    <MIN_AMOUNT>50</MIN_AMOUNT>
+                    <MAX_AMOUNT>1000000</MAX_AMOUNT>
+                </APPLY_LOAN>
+                <PAY_LOAN>
+                    <MIN_AMOUNT>1</MIN_AMOUNT>
+                    <MAX_AMOUNT>150000</MAX_AMOUNT>
+                </PAY_LOAN>
+            </AMOUNT_LIMITS>
+            <CONFIGURATION>
+                <CASH_WITHDRAWAL>
+                    <CHANNELS>
+                        <CHANNEL NAME="MPESA" LABEL="Safaricom M-PESA" STATUS="ACTIVE" WITHDRAW_TO_OTHER_NUMBER="INACTIVE"/>
+                        <CHANNEL NAME="ATM" LABEL="Withdraw Via ATM" STATUS="INACTIVE" WITHDRAW_TO_OTHER_NUMBER="INACTIVE"/>
+                        <CHANNEL NAME="AGENT" LABEL="Withdraw Via AGENT" STATUS="INACTIVE" WITHDRAW_TO_OTHER_NUMBER="INACTIVE"/>
+                    </CHANNELS>
+                </CASH_WITHDRAWAL>
+                <AGENCY_BANKING>
+                    <CUSTOMER_SEARCH_OPTION>
+                        <OPTION NAME="PHONE_NUMBER" LABEL="Phone Number" STATUS="ACTIVE"/>
+                        <OPTION NAME="ID_NUMBER" LABEL="ID Number" STATUS="ACTIVE"/>
+                        <OPTION NAME="MEMBER_NUMBER" LABEL="Account Number" STATUS="ACTIVE"/>
+                    </CUSTOMER_SEARCH_OPTION>
+                </AGENCY_BANKING>
+                <ACCOUNT_STATEMENT>
+                    <STATEMENT_PERIODS>
+                        <PERIOD NAME="CUSTOM" LABEL="Custom Period" STATUS="ACTIVE" START_DATE="MONTH_START" END_DATE="MONTH_END" MAXIMUM_TRANSACTIONS="100"/>
+                        <PERIOD NAME="1WEEK" LABEL="Past 1 Week" STATUS="ACTIVE" START_DATE="TODAY-7D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="50"/>
+                        <PERIOD NAME="2WEEKS" LABEL="Past 2 Weeks" STATUS="ACTIVE" START_DATE="TODAY-14D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="75"/>
+                        <PERIOD NAME="1MONTHS" LABEL="Past 1 Month" STATUS="ACTIVE" START_DATE="TODAY-30D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="100"/>
+                        <PERIOD NAME="3MONTHS" LABEL="Past 3 Months" STATUS="ACTIVE" START_DATE="TODAY-90D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="250"/>
+                        <PERIOD NAME="6MONTHS" LABEL="Past 6 Months" STATUS="ACTIVE" START_DATE="TODAY-183D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="500"/>
+                        <PERIOD NAME="YTD" LABEL="This Year To Date" STATUS="ACTIVE" START_DATE="TODAY-YTD" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="750"/>
+                        <PERIOD NAME="1YEAR" LABEL="Past 1 Year" STATUS="ACTIVE" START_DATE="TODAY-365D" END_DATE="TODAY" MAXIMUM_TRANSACTIONS="1000"/>
+                    </STATEMENT_PERIODS>
+                </ACCOUNT_STATEMENT>
+            </CONFIGURATION>
+        </SERVICE_CONFIGS>
+    </CUSTOM_PARAMETERS>
+    <AUTHENTICATION_PARAMETERS>
+        <PASSWORD_ATTEMPT_PARAMETERS>
+            <ATTEMPTS NAME='DEFAULT_SUSPEND' ACTION='SUSPEND' STEP='2' DURATION='30' UNIT='DAY' NOTIFY='YES' >
+                <!-- <ATTEMPTS NAME='DEFAULT_SUSPEND/DEFAULT_WARN/DEFAULT_LOCK' ACTION='SUSPEND/WARN/LOCK' STEP='3' DURATION='24' UNIT='HOUR' NOTIFY='YES' > -->
+                <!--<ATTEMPT ACTION='NONE/WARN/SUSPEND/LOCK' NOTIFY='YES/NO'>3</ATTEMPT>-->
+                <ATTEMPT NAME='FIRST_WARNING' ACTION='WARN' NOTIFY='NO'>2</ATTEMPT>
+                <ATTEMPT NAME='FIRST_SUSPENSION' ACTION='SUSPEND' DURATION='60' UNIT='MINUTE' NOTIFY='NO'>4</ATTEMPT> <!-- UNIT='SECOND/MINUTE/HOUR/DAY' -->
+                <ATTEMPT NAME='SECOND_WARNING' ACTION='WARN' NOTIFY='NO'>5</ATTEMPT>
+                <ATTEMPT NAME='SECOND_SUSPENSION' ACTION='SUSPEND' DURATION='24' UNIT='HOUR' NOTIFY='NO'>6</ATTEMPT>
+                <ATTEMPT NAME='THIRD_WARNING' ACTION='WARN' NOTIFY='NO'>7</ATTEMPT>
+            </ATTEMPTS>
+            <NOTIFY STATUS='ACTIVE'>
+                <!-- STATUS='ACTIVE/INACTIVE'-->
+                <GROUP NAME='SUPPORT_TEAM_MSISDN' TYPE='MSISDN' ATTEMPTS = 'THIRD_WARNING,DEFAULT_SUSPEND' STATUS='ACTIVE'>
+                    <!-- TYPE='MSISDN/APP_ID/EMAIL_ADDRESS' STATUS='ACTIVE/INACTIVE' ATTEMPTS='ATTEMPT NAMEs separated with Comma.'-->
+                    <CONTACTS>
+                        <CONTACT IDENTIFIER='254721913958' STATUS='ACTIVE'>Moses Magero</CONTACT>
+                        <!-- STATUS='ACTIVE/INACTIVE'-->
+                        <CONTACT IDENTIFIER='254706405989' STATUS='ACTIVE'>Isaac Kiptoo</CONTACT>
+                    </CONTACTS>
+                    <!-- todo: Structure message & Include Mobile Number -->
+                    <MSG SUBJECT=''>Dear [FIRST_NAME], Mobile Banking Account for Mobile Number: [MOBILE_NUMBER] has made [LOGIN_ATTEMPTS] login attempts. The Mobile Banking Account is in [ATTEMPT_NAME] stage.</MSG>
+                    <!-- ATTEMPT_NAME=WARNING/SUSPENSION/LOCKED -->
+                    <!-- Inbuild MSG Place holders [LOGIN_ATTEMPTS], [ATTEMPT_NAME], [ATTEMPT_ACTION], [NAME], [FIRST_NAME], [LAST_NAME] -->
+                </GROUP>
+                <GROUP NAME='SUPPORT_TEAM_EMAIL_ADDRESS' TYPE='EMAIL_ADDRESS' ATTEMPTS = 'THIRD_WARNING,DEFAULT_SUSPEND' STATUS='ACTIVE'>
+                    <CONTACTS>
+                        <CONTACT IDENTIFIER='moses@skyworld.co.ke' ACTION='TO' STATUS='ACTIVE'>Moses Magero</CONTACT>
+                        <!-- ACTION='TO/CC/BCC' is optional. Default = 'TO' -->
+                        <CONTACT IDENTIFIER='isaac.kiptoo@skyworld.co.ke' STATUS='ACTIVE'>Isaac Kiptoo</CONTACT>
+                    </CONTACTS>
+                    <MSG SUBJECT='Mobile Banking Login Attempts'>Dear [FIRST_NAME], Mobile Banking Account for Mobile Number: [MOBILE_NUMBER] has made [LOGIN_ATTEMPTS] login attempts. The Mobile Banking Account is in [ATTEMPT_NAME] stage.</MSG>
+                    <!-- ATTEMPT_NAME=WARNING/SUSPENSION/LOCKED -->
+                </GROUP>
+            </NOTIFY>
+        </PASSWORD_ATTEMPT_PARAMETERS>
+        <OTP_ATTEMPT_PARAMETERS>
+            <ATTEMPTS NAME='DEFAULT_SUSPEND' ACTION='SUSPEND' STEP='2' RESET_OTP='YES' DURATION='30' UNIT='DAY' NOTIFY='NO' >
+                <!--<ATTEMPT NAME='FIRST_WARNING' ACTION='NONE/WARN/SUSPEND/LOCK' RESET_OTP='YES/NO' NOTIFY='YES/NO'>3</ATTEMPT>-->
+                <ATTEMPT NAME='FIRST_WARNING' ACTION='WARN' RESET_OTP='YES' NOTIFY='NO'>3</ATTEMPT>
+                <ATTEMPT NAME='FIRST_SUSPENSION' ACTION='SUSPEND' RESET_OTP='YES' DURATION='60' UNIT='MINUTE' NOTIFY='NO'>6</ATTEMPT>
+                <!-- UNIT='SECOND/MINUTE/HOUR/DAY' -->
+                <ATTEMPT NAME='SECOND_WARNING' ACTION='WARN' RESET_OTP='YES' NOTIFY='NO'>9</ATTEMPT>
+                <ATTEMPT NAME='SECOND_SUSPENSION' ACTION='SUSPEND' RESET_OTP='YES' DURATION='24' UNIT='HOUR' NOTIFY='NO'>12</ATTEMPT>
+                <ATTEMPT NAME='THIRD_WARNING' ACTION='WARN' RESET_OTP='YES' NOTIFY='NO'>15</ATTEMPT>
+                <!-- RESET_OTP='YES' Means Remove OTP from table -->
+                <ATTEMPT NAME='LOCK_ACCOUNT' ACTION='LOCK' RESET_OTP='YES' NOTIFY='YES'>18</ATTEMPT>
+                <!-- if LOCK is set, do not use DEFAULT_SUSPEND -->
+            </ATTEMPTS>
+            <NOTIFY STATUS='ACTIVE'>
+                <!-- STATUS='ACTIVE/INACTIVE'-->
+                <GROUP NAME='SUPPORT_TEAM_MSISDN' TYPE='MSISDN' ATTEMPTS = 'THIRD_WARNING,DEFAULT_SUSPEND' STATUS='ACTIVE'>
+                    <!-- TYPE='MSISDN/APP_ID/EMAIL_ADDRESS' STATUS='ACTIVE/INACTIVE' ATTEMPTS='ATTEMPT NAMEs separated with Comma.'-->
+                    <CONTACTS>
+                        <CONTACT IDENTIFIER='254721913958' STATUS='ACTIVE'>Moses Magero</CONTACT>
+                        <!-- STATUS='ACTIVE/INACTIVE'-->
+                        <CONTACT IDENTIFIER='254706405989' STATUS='ACTIVE'>Isaac Kiptoo</CONTACT>
+                    </CONTACTS>
+                    <!-- Include Mobile Number -->
+                    <MSG SUBJECT=''>Dear [FIRST_NAME], Mobile Banking User with Mobile Number: [MOBILE_NUMBER] has made [OTP_ATTEMPTS] OTP attempts. The Mobile Banking Account is in [ATTEMPT_NAME] stage.</MSG>
+                    <!-- ATTEMPT_NAME=WARNING/SUSPENSION/LOCKED -->
+                </GROUP>
+                <GROUP NAME='SUPPORT_TEAM_EMAIL_ADDRESS' TYPE='EMAIL_ADDRESS' ATTEMPTS = 'THIRD_WARNING,DEFAULT_SUSPEND'  STATUS='ACTIVE'>
+                    <CONTACTS>
+                        <CONTACT IDENTIFIER='moses@skyworld.co.ke' ACTION='TO' STATUS='ACTIVE'>Moses Magero</CONTACT>
+                        <CONTACT IDENTIFIER='isaac.kiptoo@skyworld.co.ke' STATUS='ACTIVE'>Isaac Kiptoo</CONTACT>
+                    </CONTACTS>
+                    <MSG SUBJECT='Mobile Banking OTP Attempts'>Dear [FIRST_NAME], Mobile Banking User with Mobile Number: [MOBILE_NUMBER] has made [OTP_ATTEMPTS] OTP attempts. The Mobile Banking Account is in [ATTEMPT_NAME] stage.</MSG>
+                    <!-- ATTEMPT_NAME=WARNING/SUSPENSION/LOCKED -->
+                </GROUP>
+            </NOTIFY>
+        </OTP_ATTEMPT_PARAMETERS>
+    </AUTHENTICATION_PARAMETERS>
+</OTHER_DETAILS>

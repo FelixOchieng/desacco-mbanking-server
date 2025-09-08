@@ -1,0 +1,54 @@
+<OTHER_DETAILS>
+    <CUSTOM_PARAMETERS>
+        <SAFARICOM>
+            <MPESA_C2B>
+                <PRODUCT_ID>181</PRODUCT_ID>
+                <SENDER_IDENTIFIER>907116</SENDER_IDENTIFIER>
+                <SENDER_ACCOUNT>907116</SENDER_ACCOUNT>
+                <SENDER_NAME>DEFENCE SACCO - C2B</SENDER_NAME>
+            </MPESA_C2B>
+            <MPESA_B2C>
+                <PRODUCT_ID>182</PRODUCT_ID>
+                <SENDER_IDENTIFIER>3030931</SENDER_IDENTIFIER>
+                <SENDER_ACCOUNT>3030931</SENDER_ACCOUNT>
+                <SENDER_NAME>DEFENCE SACCO - B2C</SENDER_NAME>
+            </MPESA_B2C>
+            <MPESA_B2B>
+                <PRODUCT_ID>183</PRODUCT_ID>
+                <SENDER_IDENTIFIER>3030931</SENDER_IDENTIFIER>
+                <SENDER_ACCOUNT>3030931</SENDER_ACCOUNT>
+                <SENDER_NAME>DEFENCE SACCO - B2B</SENDER_NAME>
+            </MPESA_B2B>
+        </SAFARICOM>
+        <GLOBAL>
+            <AIRTIME>
+                <PRODUCT_ID>184</PRODUCT_ID>
+                <SENDER_IDENTIFIER>1010046</SENDER_IDENTIFIER>
+                <SENDER_ACCOUNT>1010046</SENDER_ACCOUNT>
+                <SENDER_NAME>DEFENCE SACCO - Electronic Airtime</SENDER_NAME>
+            </AIRTIME>
+        </GLOBAL>
+    </CUSTOM_PARAMETERS>
+    <PESA_PARAMETERS>
+        <PESA_OUT STATUS="ACTIVE">
+            <TABLE_NAME>PESA_OUT_pesa_log</TABLE_NAME>
+            <SEND_PESA>
+                <SERVICE_URLS>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/sendpesa</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/sendpesa</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/sendpesa</SERVICE_URL>
+                </SERVICE_URLS>
+            </SEND_PESA>
+        </PESA_OUT>
+        <PESA_IN>
+            <TABLE_NAME>PESA_IN_pesa_log</TABLE_NAME>
+            <PAYMENT_REQUEST>
+                <SERVICE_URLS>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/requestpesa</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/requestpesa</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.209:8088/pesa_gateway_interface/global/requestpesa</SERVICE_URL>
+                </SERVICE_URLS>
+            </PAYMENT_REQUEST>
+        </PESA_IN>
+    </PESA_PARAMETERS>
+</OTHER_DETAILS>

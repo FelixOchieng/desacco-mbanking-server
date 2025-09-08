@@ -1,0 +1,34 @@
+<OTHER_DETAILS>
+    <CUSTOM_PARAMETERS>
+        <SMS>
+            <MT>
+                <PRODUCT_ID>190</PRODUCT_ID>
+                <SENDER>DESACCO</SENDER>
+            </MT>
+        </SMS>
+    </CUSTOM_PARAMETERS>
+    <MSG_PARAMETERS>
+        <MT_MSG STATUS="ACTIVE">
+            <TABLE_NAME>[DESACCO LTD].dbo.[DEFENCE SACCO LTD$Sky SMS Messages]</TABLE_NAME>
+            <SEND_MSG>
+                <SERVICE_URLS>
+                    <SERVICE_URL>http://102.220.117.210:8088/msg_gateway_interface/global/sendmsg</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.210:8088/msg_gateway_interface/global/sendmsg</SERVICE_URL>
+                    <SERVICE_URL>http://102.220.117.210:8088/msg_gateway_interface/global/sendmsg</SERVICE_URL>
+                </SERVICE_URLS>
+            </SEND_MSG>
+        </MT_MSG>
+        <MO_MSG MODE="ONLINE" STATUS="ACTIVE"> <!-- MODE=ONLINE/OFFLINE/-->
+            <TABLE_NAME>[DESACCO LTD].dbo.[DEFENCE SACCO LTD$Sky SMS Messages]</TABLE_NAME>
+            <ONLINE_MSG>Dear Customer, Your SMS has been received. We shall respond back shortly.</ONLINE_MSG>
+        </MO_MSG>
+    </MSG_PARAMETERS>
+    <LOGS_DATABASE_PARAMETERS STATUS="ACTIVE">
+        <TYPE>MicrosoftSQL</TYPE>
+        <HOSTNAME>192.168.50.6\MSSQL_VERII</HOSTNAME>
+        <PORT>1433</PORT>
+        <NAME>DESACCO LTD</NAME>
+        <USERNAME>SkySMS</USERNAME>
+        <PASSWORD TYPE="CLEARTEXT">#SMS@DESACCO@Sky2022$</PASSWORD>
+    </LOGS_DATABASE_PARAMETERS>
+</OTHER_DETAILS>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<CONFIG LOGGING_LEVEL="DEBUG"> <!-- INFO/DEBUG -->
+    <CORE_BANKING>
+        <TYPE>Microsoft Dynamics NAV</TYPE>
+        <URL>http://172.1.1.10:7047/HarambeeDev/WS/HARAMBEE%20SACCO%20SOCIETY%20LTD/Codeunit/SkyAgency</URL>
+        <USERNAME>mbanking</USERNAME>
+        <PASSWORD TYPE="ENCRYPTED">sfHQdKHlp7G9CfImfrfez+QNPxklQHFIFVcMXkUuozc=</PASSWORD>
+        <DOMAIN>harambeesacco</DOMAIN>
+        <WORKSTATION/>
+        <SOAP_ACTION_REFFIX>urn:microsoft-dynamics-schemas/codeunit/SkyAgency:</SOAP_ACTION_REFFIX>
+    </CORE_BANKING>
+</CONFIG>
