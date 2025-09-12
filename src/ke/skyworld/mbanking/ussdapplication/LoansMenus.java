@@ -153,7 +153,7 @@ public interface LoansMenus {
                 case "MENU": {
                     String strHeader = "Check Loan Limit";
                     strHeader += "\nSelect an account";
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
                     break;
                 }
                 case "ACCOUNT": {
@@ -164,7 +164,7 @@ public interface LoansMenus {
                         theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, strAccount);
                     } else {
                         strHeader += "\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
                     }
                     break;
                 }
@@ -246,7 +246,7 @@ public interface LoansMenus {
                 case "MENU": {
                     String strHeader = "Loan Application";
                     strHeader += "\nSelect an account";
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_APPLICATION_END);
                     break;
                 }
                 case "ACCOUNT": {
@@ -258,7 +258,7 @@ public interface LoansMenus {
                         theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, strLoanAccount);
                     } else {
                         strHeader += "\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_APPLICATION_END);
                     }
                     break;
                 }
@@ -794,7 +794,7 @@ public interface LoansMenus {
                         if (!strLoanType.equals("")) {
                             if (strLOAN_REPAYMENT_OPTION.equalsIgnoreCase("Savings Account")) {
                                 String strHeader = "Pay Loan\nSelect an account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT);
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                             } else {
                                 boolean blGroupBankingIsEnabled = theUSSDAPI.checkIfGroupBankingIsEnabled(theUSSDRequest);
                                 if (blGroupBankingIsEnabled) {
@@ -802,7 +802,7 @@ public interface LoansMenus {
                                     theUSSDResponse = GeneralMenus.displayMenu_LoanCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.LOAN_REPAYMENT_CATEGORY);
                                 } else {
                                     String strHeader = "Pay Loan via " + strLOAN_REPAYMENT_OPTION + "\nSelect Loan";
-                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, "");
+                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                                 }
                             }
                         } else {
@@ -816,10 +816,10 @@ public interface LoansMenus {
 
                         if (!strLoanAccount.equals("")) {
                             String strHeader = "Pay loan from savings account\nSelect Loan";
-                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, "");
+                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         } else {
                             String strHeader = "Pay Loa\n{Select a valid account}\nSelect an account";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         }
                         break;
                     }
@@ -832,7 +832,7 @@ public interface LoansMenus {
                                 theUSSDResponse = GeneralMenus.displayMenu_AccountGroups(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP);
                             } else {
                                 String strHeader = "Pay Loan\nSelect Loan";
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, "");
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                             }
                         } else {
                             String strHeader = "Pay Loan\n{Select a valid menu}";
@@ -845,7 +845,7 @@ public interface LoansMenus {
 
                         if (!strUserInput.equals("")) {
                             String strHeader = "Pay Loan \nSelect Loan";
-                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, strUserInput);
+                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         } else {
                             String strHeader = "Pay Loan\n{Select a valid menu}";
                             theUSSDResponse = getLoanRepaymentOption(theUSSDRequest, strHeader);
@@ -875,7 +875,7 @@ public interface LoansMenus {
                         } else {
                             String strLoanGroup = theUSSDRequest.getUSSDData().getOrDefault(AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP.name(), "");
                             String strHeader = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\n{Select a valid option}\nSelect Loan";
-                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, strLoanGroup);
+                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         }
                         break;
                     }

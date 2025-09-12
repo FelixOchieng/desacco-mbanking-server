@@ -19,14 +19,14 @@ public interface BalanceEnquiryMenus {
         USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
 
-        try{
-            String  strHeader = "Balance Enquiry";
+        try {
+            String strHeader = "Balance Enquiry";
             APIConstants.AccountType accountType = APIConstants.AccountType.ALL;
 
-            switch (theParam){
+            switch (theParam) {
                 case "MENU": {
                     strHeader = "Balance Enquiry";
-                    theUSSDResponse = GeneralMenus.displayMenu_AccountTypes(theUSSDRequest, theParam, strHeader+"\nSelect a category", AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE);
+                    theUSSDResponse = GeneralMenus.displayMenu_AccountTypes(theUSSDRequest, theParam, strHeader + "\nSelect a category", AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE);
                     break;
                 }
                 default: {
@@ -35,51 +35,49 @@ public interface BalanceEnquiryMenus {
 
                     AppConstants.USSDDataType ussdDataType = getBalanceEnquiryCallerMenu(theUSSDRequest.getUSSDData().toString());
 
-                    switch (ussdDataType){
-                        case MY_ACCOUNT_BALANCE_ACCOUNT_TYPE:{
+                    switch (ussdDataType) {
+                        case MY_ACCOUNT_BALANCE_ACCOUNT_TYPE: {
                             strAccountType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE.name());
                             break;
                         }
-                        case LOAN_MENU:{
+                        case LOAN_MENU: {
                             strAccountType = APIConstants.AccountType.LOAN.getValue();
                             break;
                         }
                     }
 
                     if (strAccountType != null) {
-                        switch (strAccountType){
-                            case "FOSA":{
+                        switch (strAccountType) {
+                            case "FOSA": {
                                 strHeader = "FOSA Account Balance Enquiry";
                                 accountType = APIConstants.AccountType.FOSA;
                                 break;
                             }
-                            case "BOSA":{
+                            case "BOSA": {
                                 strHeader = "BOSA Account Balance Enquiry";
                                 accountType = APIConstants.AccountType.BOSA;
                                 break;
                             }
-                            case "ALL":{
+                            case "ALL": {
                                 strHeader = "All Account Balance Enquiry";
                                 accountType = APIConstants.AccountType.BOSA;
                                 break;
                             }
-                            case "LOAN":{
+                            case "LOAN": {
                                 strHeader = "Loans Status Enquiry";
                                 accountType = APIConstants.AccountType.LOAN;
                                 break;
                             }
                         }
                     }
-                    theUSSDResponse =  displayMenu_BalanceEnquiryMenus(theUSSDRequest, theParam , accountType, strHeader);
+                    theUSSDResponse = displayMenu_BalanceEnquiryMenus(theUSSDRequest, theParam, accountType, strHeader);
                     break;
                 }
             }
 
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_BalanceEnquiry() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theUSSDAPI = null;
             theAppMenus = null;
         }
@@ -90,61 +88,61 @@ public interface BalanceEnquiryMenus {
         USSDResponse theUSSDResponse = null;
         final USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
-        try{
+        try {
             String strHeader = theHeader;
 
             switch (theParam) {
                 case "ACCOUNT_TYPE": {
                     String strAccountType = theAccountType.getValue();
-                    if(!strAccountType.equals("")){
-                        switch (theAccountType){
-                            case FOSA:{
-                                String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                    if (!strAccountType.equals("")) {
+                        switch (theAccountType) {
+                            case FOSA: {
+                                String strResponse = strHeader + "\nSelect account";
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case  BOSA:{
-                                String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                            case BOSA: {
+                                String strResponse = strHeader + "\nSelect account";
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case LOAN:{
-                                String strResponse  = strHeader + "\nSelect Loan";
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, "");
+                            case LOAN: {
+                                String strResponse = strHeader + "\nSelect Loan";
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
                         }
                         break;
-                    }else{
-                        strHeader = strHeader+"\n{Select a valid menu}";
+                    } else {
+                        strHeader = strHeader + "\n{Select a valid menu}";
                         theUSSDResponse = GeneralMenus.displayMenu_AccountTypes(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE);
                     }
                     break;
                 }
                 case "ACCOUNT_CATEGORY": {
                     String strAccountCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_CATEGORY.name());
-                    if(!strAccountCategory.equals("")){
-                        switch (theAccountType){
-                            case FOSA:{
-                                String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                    if (!strAccountCategory.equals("")) {
+                        switch (theAccountType) {
+                            case FOSA: {
+                                String strResponse = strHeader + "\nSelect account";
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case  BOSA:{
-                                String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                            case BOSA: {
+                                String strResponse = strHeader + "\nSelect account";
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case LOAN:{
-                                String strResponse  = strHeader + "\nSelect Loan";
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, "");
+                            case LOAN: {
+                                String strResponse = strHeader + "\nSelect Loan";
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
                         }
                         break;
-                    }else{
-                        strHeader = strHeader+"\n{Select a valid menu}";
-                        if(theAccountType == APIConstants.AccountType.LOAN){
+                    } else {
+                        strHeader = strHeader + "\n{Select a valid menu}";
+                        if (theAccountType == APIConstants.AccountType.LOAN) {
                             theUSSDResponse = GeneralMenus.displayMenu_LoanCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_CATEGORY);
                         } else {
                             theUSSDResponse = GeneralMenus.displayMenu_AccountCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_CATEGORY);
@@ -155,22 +153,22 @@ public interface BalanceEnquiryMenus {
                 case "ACCOUNT": {
                     String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT.name());
 
-                    if(!strAccount.equals("")){
-                        String strResponse = strHeader+"\nEnter your PIN:";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN, USSDConstants.USSDInputType.STRING,"NO");
-                    }else{
-                        String strResponse  = strHeader + "\n{Select a valid menu}";
-                        switch (theAccountType){
-                            case FOSA:{
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                    if (!strAccount.equals("")) {
+                        String strResponse = strHeader + "\nEnter your PIN:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN, USSDConstants.USSDInputType.STRING, "NO");
+                    } else {
+                        String strResponse = strHeader + "\n{Select a valid menu}";
+                        switch (theAccountType) {
+                            case FOSA: {
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case  BOSA:{
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT);
+                            case BOSA: {
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
-                            case LOAN:{
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, strAccount);
+                            case LOAN: {
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END);
                                 break;
                             }
                         }
@@ -181,64 +179,61 @@ public interface BalanceEnquiryMenus {
                 case "PIN": {
                     String strLoginPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
                     String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN.name());
-                    if(strLoginPIN.equals(strPIN)){
+                    if (strLoginPIN.equals(strPIN)) {
 
                         String strResponse;
                         String strAccountNumber = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT.name());
 
-                        if(theAccountType.equals(APIConstants.AccountType.LOAN)){
+                        if (theAccountType.equals(APIConstants.AccountType.LOAN)) {
                             HashMap<String, String> hmLoan = Utils.toHashMap(strAccountNumber);
                             strAccountNumber = hmLoan.get("LOAN_ID");
                         }
 
                         strResponse = theUSSDAPI.accountBalanceEnquiry(theUSSDRequest, strAccountNumber);
-                        System.out.println("accountBalanceEnquiry: "+strResponse);
+                        System.out.println("accountBalanceEnquiry: " + strResponse);
 
-                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO",theArrayListUSSDSelectOption);
-                    }else{
-                        String strResponse = strHeader+"\n{Please enter a correct PIN}\nEnter your PIN:";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN, USSDConstants.USSDInputType.STRING,"NO");
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO", theArrayListUSSDSelectOption);
+                    } else {
+                        String strResponse = strHeader + "\n{Please enter a correct PIN}\nEnter your PIN:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN, USSDConstants.USSDInputType.STRING, "NO");
                     }
 
                     break;
                 }
-                default:{
+                default: {
                     System.err.println("theAppMenus.displayMenu_BalanceEnquiryMenus() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
-                    String strResponse = strHeader+"\n{Sorry, an error has occurred while processing your request}\n";
-                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                    String strResponse = strHeader + "\n{Sorry, an error has occurred while processing your request}\n";
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO",theArrayListUSSDSelectOption);
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO", theArrayListUSSDSelectOption);
 
                     break;
                 }
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_BalanceEnquiryMenus() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
     }
 
-    default AppConstants.USSDDataType getBalanceEnquiryCallerMenu(String theUSSDData){
+    default AppConstants.USSDDataType getBalanceEnquiryCallerMenu(String theUSSDData) {
 
         AppConstants.USSDDataType ussdDataType = AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE;
 
-        try{
+        try {
 
             int intMY_ACCOUNT_BALANCE_ACCOUNT_TYPE = theUSSDData.lastIndexOf(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE.name());
             int intLOAN_MENU = theUSSDData.lastIndexOf(AppConstants.USSDDataType.LOAN_MENU.name());
 
             ussdDataType = (intMY_ACCOUNT_BALANCE_ACCOUNT_TYPE > intLOAN_MENU) ? AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE : AppConstants.USSDDataType.LOAN_MENU;
-        }catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.getBalanceEnquiryCallerMenu() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
 
         }
         return ussdDataType;

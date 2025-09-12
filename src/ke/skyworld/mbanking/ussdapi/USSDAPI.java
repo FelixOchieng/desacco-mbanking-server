@@ -1,11 +1,13 @@
 package ke.skyworld.mbanking.ussdapi;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import com.jayway.jsonpath.JsonPath;
+import ke.co.skyworld.smp.query_manager.SystemTables;
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreArrayList;
 import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
 import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.query_manager.query.FilterPredicate;
 import ke.co.skyworld.smp.query_manager.util.SystemParameters;
+import ke.co.skyworld.smp.query_repository.Repository;
+import ke.co.skyworld.smp.utility_items.constants.StringRefs;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingDB;
@@ -19,6 +21,7 @@ import ke.skyworld.lib.mbanking.pesa.PESAConstants;
 import ke.skyworld.lib.mbanking.pesa.PESAProcessor;
 import ke.skyworld.lib.mbanking.ussd.USSDLocalParameters;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
+import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
 import ke.skyworld.lib.mbanking.utils.Utils;
 import ke.skyworld.mbanking.mappapi.MAPPAPIDB;
 import ke.skyworld.mbanking.mbankingapi.MBankingAPI;
@@ -41,7 +44,6 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
 import java.io.*;
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,8 +52,6 @@ import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static ke.skyworld.mbanking.nav.cbs.CBSAPI.getDividendPayslip;
@@ -447,6 +447,29 @@ public class USSDAPI {
     //     return loginReturnVal;
     // }
 
+    public TransactionWrapper<FlexicoreHashMap> isValidKYCDetails(USSDRequest theUSSDRequest, String thePrimaryIdentityNo) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            return CBSAPI.isValidKYCDetails(strReferenceKey, "MSISDN", strMobileNumber, "IMSI", strSIMID, "NATIONAL_ID", thePrimaryIdentityNo, USSDAPIConstants.MobileChannel.USSD);
+        } catch (Exception e) {
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+
+        return resultWrapper;
+    }
+
     public APIConstants.SetPINReturnVal setUserPIN(USSDRequest theUSSDRequest) {
 
         APIConstants.SetPINReturnVal rVal = APIConstants.SetPINReturnVal.ERROR;
@@ -573,7 +596,7 @@ public class USSDAPI {
 
             String strEntryNumber = fnModifyUSSDSessionID(theUSSDRequest);
 
-            String strMemberVirtualRegistrationStatus = "";//Navision.getPort().registerVirtualMember(strMemberName, strMemberNationalIDNumber, strMemberMobileNumber, xmlGregCalMemberDateOfBirth, strMobileNumber, strEntryNumber);
+            String strMemberVirtualRegistrationStatus = "";// Navision.getPort().registerVirtualMember(strMemberName, strMemberNationalIDNumber, strMemberMobileNumber, xmlGregCalMemberDateOfBirth, strMobileNumber, strEntryNumber);
             switch (strMemberVirtualRegistrationStatus) {
                 case "SUCCESS": {
                     rVal = APIConstants.AccountRegistrationReturnVal.SUCCESS;
@@ -648,7 +671,7 @@ public class USSDAPI {
 
             String strEntryNumber = fnModifyUSSDSessionID(theUSSDRequest);
 
-            String strMemberVirtualRegistrationStatus = "";//Navision.getPort().registerVirtualMember(strMemberName, strMemberNationalIDNumber, strMobileNumber, xmlGregCalMemberDateOfBirth, "", strEntryNumber);
+            String strMemberVirtualRegistrationStatus = "";// Navision.getPort().registerVirtualMember(strMemberName, strMemberNationalIDNumber, strMobileNumber, xmlGregCalMemberDateOfBirth, "", strEntryNumber);
             switch (strMemberVirtualRegistrationStatus) {
                 case "SUCCESS": {
                     rVal = APIConstants.AccountRegistrationReturnVal.SUCCESS;
@@ -768,6 +791,56 @@ public class USSDAPI {
         return accounts;
     }
 
+    public FlexicoreArrayList getBankAccounts_V2(USSDRequest theUSSDRequest, APIConstants.AccountType theAccountType, String theGroup) {
+        FlexicoreArrayList accounts = null;
+        try {
+            String strAccountCategory;
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+            switch (theAccountType) {
+                case WITHDRAWABLE: {
+                    strAccountCategory = "WITHDRAWABLE";
+                    break;
+                }
+                case FOSA: {
+                    strAccountCategory = "FOSA";
+                    break;
+                }
+                case BOSA: {
+                    strAccountCategory = "BOSA";
+                    break;
+                }
+                case LOAN: {
+                    strAccountCategory = "ALL_LOANS";
+                    break;
+                }
+                case ALL:
+                default: {
+                    strAccountCategory = "ALL_ACCOUNTS";
+                    break;
+                }
+            }
+
+            HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+            String strIdentifierType = userIdentifierDetails.get("identifier_type");
+            String strIdentifier = userIdentifierDetails.get("identifier");
+
+            TransactionWrapper<FlexicoreHashMap> accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, strIdentifierType, strIdentifier, strAccountCategory);
+
+            if (!accountsListWrapper.hasErrors()) {
+                FlexicoreArrayList accountsList = accountsListWrapper.getSingleRecord().getValue("payload");
+                accounts = accountsList;
+            }
+
+        } catch (Exception e) {
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return accounts;
+    }
+
     public LinkedHashMap<String, String> getAccountGroups(USSDRequest theUSSDRequest) {
         LinkedHashMap<String, String> accounts = null;
         try {
@@ -787,8 +860,8 @@ public class USSDAPI {
 
             for (int i = 0; i < nlAccounts.getLength(); i++) {
                 NodeList nlAccount = ((NodeList) configXPath.evaluate("Account", nlAccounts, XPathConstants.NODESET)).item(i).getChildNodes();
-                //accounts.put(nlAccount.item(0).getTextContent(), nlAccount.item(1).getTextContent());
-                //accounts.put(nlAccount.item(0).getTextContent(), nlAccount.item(1).getTextContent());
+                // accounts.put(nlAccount.item(0).getTextContent(), nlAccount.item(1).getTextContent());
+                // accounts.put(nlAccount.item(0).getTextContent(), nlAccount.item(1).getTextContent());
             }
 
             accounts.put("G001", "Bidii Youth Group");
@@ -850,7 +923,6 @@ public class USSDAPI {
 
         return account;
     }
-
 
     public String accountBalanceEnquiry(USSDRequest theUSSDRequest, String theAccountNumber) {
         try {
@@ -983,12 +1055,12 @@ public class USSDAPI {
             pesa.setPESAAction(PESAConstants.PESAAction.B2C);
             pesa.setCommand("BusinessPayment");
             pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
-            //pesa.setChargeProposed(null);
+            // pesa.setChargeProposed(null);
 
             pesa.setInitiatorType("MSISDN");
             pesa.setInitiatorIdentifier(strMobileNumberFrom);
             pesa.setInitiatorAccount(strMobileNumberFrom);
-            //pesa.setInitiatorName(""); - Set after getting name from CBS
+            // pesa.setInitiatorName(""); - Set after getting name from CBS
             pesa.setInitiatorReference(strTraceID);
             pesa.setInitiatorApplication("USSD");
             pesa.setInitiatorOtherDetails("<DATA/>");
@@ -996,7 +1068,7 @@ public class USSDAPI {
             pesa.setSourceType("ACCOUNT_NO");
             pesa.setSourceIdentifier(strAccountFrom);
             pesa.setSourceAccount(strAccountFrom);
-            //pesa.setSourceName(""); - Set after getting name from CBS
+            // pesa.setSourceName(""); - Set after getting name from CBS
             pesa.setSourceReference(strUSSDSessionID);
             pesa.setSourceApplication("CBS");
             pesa.setSourceOtherDetails("<DATA/>");
@@ -1010,13 +1082,13 @@ public class USSDAPI {
             pesa.setReceiverType("MSISDN");
             pesa.setReceiverIdentifier(strMobileNumberTo);
             pesa.setReceiverAccount(strMobileNumberTo);
-            //pesa.setReceiverName(""); - Set after getting name from CBS
+            // pesa.setReceiverName(""); - Set after getting name from CBS
             pesa.setReceiverOtherDetails("<DATA/>");
 
             pesa.setBeneficiaryType("MSISDN");
             pesa.setBeneficiaryIdentifier(strMobileNumberTo);
             pesa.setBeneficiaryAccount(strMobileNumberTo);
-            //pesa.setBeneficiaryName(""); - Set after getting name from CBS
+            // pesa.setBeneficiaryName(""); - Set after getting name from CBS
             pesa.setBeneficiaryOtherDetails("<DATA/>");
 
             pesa.setBatchReference(strGUID);
@@ -1170,12 +1242,12 @@ public class USSDAPI {
                     String strSMS = "InterSwitchAPI.sendRequest(lnMobileNumberToReceiveSMS, lnAmount, lnSessionID, strMemberName)";
                     if (strSMS.equalsIgnoreCase("ERROR")) {
                         /*API CALL TO CBS START*/
-                        //instStart = Instant.now();
-                        //System.out.println("Making API Call To NAV");
+                        // instStart = Instant.now();
+                        // System.out.println("Making API Call To NAV");
                         CBSAPI.reverseWithdrawalRequest(strGUID);
-                        //instEnd = Instant.now();
-                        //durTimeElapsed = Duration.between(instStart, instEnd);
-                        //USSDAPIDB.fnProfileCallsToCBS("ReverseWithdrawalRequest", durTimeElapsed, "CBS");
+                        // instEnd = Instant.now();
+                        // durTimeElapsed = Duration.between(instStart, instEnd);
+                        // USSDAPIDB.fnProfileCallsToCBS("ReverseWithdrawalRequest", durTimeElapsed, "CBS");
                         /*instEnd = null;
                         instStart = null;
                         durTimeElapsed = null;*/
@@ -1260,12 +1332,12 @@ public class USSDAPI {
             pesa.setPESAAction(PESAConstants.PESAAction.B2C);
             pesa.setCommand("E-TOPUP");
             pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
-            //pesa.setChargeProposed(null);
+            // pesa.setChargeProposed(null);
 
             pesa.setInitiatorType("MSISDN");
             pesa.setInitiatorIdentifier(strMobileNumberFrom);
             pesa.setInitiatorAccount(strMobileNumberFrom);
-            //pesa.setInitiatorName(""); - Set after getting name from CBS
+            // pesa.setInitiatorName(""); - Set after getting name from CBS
             pesa.setInitiatorReference(strTraceID);
             pesa.setInitiatorApplication("USSD");
             pesa.setInitiatorOtherDetails("<DATA/>");
@@ -1273,7 +1345,7 @@ public class USSDAPI {
             pesa.setSourceType("ACCOUNT_NO");
             pesa.setSourceIdentifier(strAccountFrom);
             pesa.setSourceAccount(strAccountFrom);
-            //pesa.setSourceName(""); - Set after getting name from CBS
+            // pesa.setSourceName(""); - Set after getting name from CBS
             pesa.setSourceReference(strUSSDSessionID);
             pesa.setSourceApplication("CBS");
             pesa.setSourceOtherDetails("<DATA/>");
@@ -1287,13 +1359,13 @@ public class USSDAPI {
             pesa.setReceiverType("MSISDN");
             pesa.setReceiverIdentifier(strMobileNumberFrom);
             pesa.setReceiverAccount(strMobileNumberFrom);
-            //pesa.setReceiverName(""); - Set after getting name from CBS
+            // pesa.setReceiverName(""); - Set after getting name from CBS
             pesa.setReceiverOtherDetails("<DATA/>");
 
             pesa.setBeneficiaryType("MSISDN");
             pesa.setBeneficiaryIdentifier(strMobileNumberFrom);
             pesa.setBeneficiaryAccount(strMobileNumberFrom);
-            //pesa.setBeneficiaryName(""); - Set after getting name from CBS
+            // pesa.setBeneficiaryName(""); - Set after getting name from CBS
             pesa.setBeneficiaryOtherDetails("<DATA/>");
 
             pesa.setBatchReference(strGUID);
@@ -1433,12 +1505,12 @@ public class USSDAPI {
             pesa.setPESAAction(PESAConstants.PESAAction.B2B);
             pesa.setCommand("BusinessPayBill");
             pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
-            //pesa.setChargeProposed(null);
+            // pesa.setChargeProposed(null);
 
             pesa.setInitiatorType("MSISDN");
             pesa.setInitiatorIdentifier(strMobileNumber);
             pesa.setInitiatorAccount(strMobileNumber);
-            //pesa.setInitiatorName(""); - Set after getting name from CBS
+            // pesa.setInitiatorName(""); - Set after getting name from CBS
             pesa.setInitiatorReference(strTraceID);
             pesa.setInitiatorApplication("USSD");
             pesa.setInitiatorOtherDetails("<DATA/>");
@@ -1446,7 +1518,7 @@ public class USSDAPI {
             pesa.setSourceType("ACCOUNT_NO");
             pesa.setSourceIdentifier(strAccountFrom);
             pesa.setSourceAccount(strAccountFrom);
-            //pesa.setSourceName(""); - Set after getting name from CBS
+            // pesa.setSourceName(""); - Set after getting name from CBS
             pesa.setSourceReference(strUSSDSessionID);
             pesa.setSourceApplication("CBS");
             pesa.setSourceOtherDetails("<DATA/>");
@@ -1607,12 +1679,12 @@ public class USSDAPI {
             pesa.setPESAAction(PESAConstants.PESAAction.B2B);
             pesa.setCommand("BusinessPayBill");
             pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
-            //pesa.setChargeProposed(null);
+            // pesa.setChargeProposed(null);
 
             pesa.setInitiatorType("MSISDN");
             pesa.setInitiatorIdentifier(strMobileNumber);
             pesa.setInitiatorAccount(strMobileNumber);
-            //pesa.setInitiatorName(""); - Set after getting name from CBS
+            // pesa.setInitiatorName(""); - Set after getting name from CBS
             pesa.setInitiatorReference(strTraceID);
             pesa.setInitiatorApplication("USSD");
             pesa.setInitiatorOtherDetails("<DATA/>");
@@ -1620,7 +1692,7 @@ public class USSDAPI {
             pesa.setSourceType("ACCOUNT_NO");
             pesa.setSourceIdentifier(strAccountFrom);
             pesa.setSourceAccount(strAccountFrom);
-            //pesa.setSourceName(""); - Set after getting name from CBS
+            // pesa.setSourceName(""); - Set after getting name from CBS
             pesa.setSourceReference(strUSSDSessionID);
             pesa.setSourceApplication("CBS");
             pesa.setSourceOtherDetails("<DATA/>");
@@ -1665,7 +1737,7 @@ public class USSDAPI {
             pesa.setPESAStatusDate(strDate);
             boolean isOtherNumber = false;
 
-            String strWithdrawalStatus = CBSAPI.insertMpesaTransaction(strGUID, strUSSDSessionID, xmlGregorianCalendar, strTransaction, strTransactionDescription, strAccountFrom, BigDecimal.valueOf(Double.parseDouble(strAmount)), strMobileNumber, strPIN, "USSD", strUSSDSessionID, "MBANKING", strBankAccountTo, strBankAccountToName, strBankName, isOtherNumber, "");            //instEnd = Instant.now();
+            String strWithdrawalStatus = CBSAPI.insertMpesaTransaction(strGUID, strUSSDSessionID, xmlGregorianCalendar, strTransaction, strTransactionDescription, strAccountFrom, BigDecimal.valueOf(Double.parseDouble(strAmount)), strMobileNumber, strPIN, "USSD", strUSSDSessionID, "MBANKING", strBankAccountTo, strBankAccountToName, strBankName, isOtherNumber, "");            // instEnd = Instant.now();
 
             System.out.println("NAV Status: " + strWithdrawalStatus);
             String[] arrWithdrawalStatus = strWithdrawalStatus.split("%&:");
@@ -1820,7 +1892,7 @@ public class USSDAPI {
             String strYear = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DIVIDEND_PAYSLIP_YEAR_INPUT.name());
 
 
-            String strDividendSlip = CBSAPI.getDividendPayslipCurrent(strMobileNumber,strYear);
+            String strDividendSlip = CBSAPI.getDividendPayslipCurrent(strMobileNumber, strYear);
 
 
             if (strDividendSlip == null || strDividendSlip.isBlank()) {
@@ -1845,9 +1917,9 @@ public class USSDAPI {
 
                     String strEmailSubject = "Dividend Slip for Year " + strYear;
                     String strEmailMessage = "Dear Member,\n" +
-                            "Kindly find your dividend slip for year " + strYear + " attached.\n" +
-                            "\n" +
-                            "Kind Regards, D SACCO Society LTD.";
+                                             "Kindly find your dividend slip for year " + strYear + " attached.\n" +
+                                             "\n" +
+                                             "Kind Regards, D SACCO Society LTD.";
 
                     MBankingAPI.processSendEmail(strEmailAddress, strEmailSubject, strEmailMessage, strFilePath);
 
@@ -1863,7 +1935,6 @@ public class USSDAPI {
             }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
         }
     }
-
 
     public void generateDividendsPayslip(USSDRequest theUSSDRequest) {
         try {
@@ -1977,10 +2048,10 @@ public class USSDAPI {
             Instant instEnd;
             instStart = Instant.now();
             System.out.println("Making API Call To NAV");*/
-            String strLoanApplicationStatus = "";//Navision.getPort().agentWithdrawal(strUSSDSessionID, strUSSDSessionID, xmlGregorianCalendar, strMobileNumber, strAgentNumber, strAgentNumber, bdAmount, strPIN);
-            //instEnd = Instant.now();
-            //Duration durTimeElapsed = Duration.between(instStart, instEnd);
-            //USSDAPIDB.fnProfileCallsToCBS("AgentWithdrawal", durTimeElapsed, "CBS");
+            String strLoanApplicationStatus = "";// Navision.getPort().agentWithdrawal(strUSSDSessionID, strUSSDSessionID, xmlGregorianCalendar, strMobileNumber, strAgentNumber, strAgentNumber, bdAmount, strPIN);
+            // instEnd = Instant.now();
+            // Duration durTimeElapsed = Duration.between(instStart, instEnd);
+            // USSDAPIDB.fnProfileCallsToCBS("AgentWithdrawal", durTimeElapsed, "CBS");
             /*instEnd = null;
             instStart = null;
             durTimeElapsed = null;*/
@@ -2010,7 +2081,6 @@ public class USSDAPI {
         }
         return rVal;
     }
-
 
     public LinkedHashMap<String, LinkedHashMap<String, String>> getLoans(USSDRequest theUSSDRequest, String theLoanGroup) {
         LinkedHashMap<String, LinkedHashMap<String, String>> loans = new LinkedHashMap<>();
@@ -2042,6 +2112,30 @@ public class USSDAPI {
             e.printStackTrace();
         }
         return loans;
+    }
+
+    public TransactionWrapper<FlexicoreHashMap> getLoans_V2(USSDRequest theUSSDRequest) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+        try {
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+            HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+            String strIdentifierType = userIdentifierDetails.get("identifier_type");
+            String strIdentifier = userIdentifierDetails.get("identifier");
+            return CBSAPI.getCustomerLoanAccounts(strMobileNumber, strIdentifierType, strIdentifier);
+
+
+        } catch (Exception e) {
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+
+        return resultWrapper;
     }
 
     public LinkedHashMap<String, LinkedHashMap<String, String>> getLoansWithGuarantors(USSDRequest theUSSDRequest) {
@@ -2231,7 +2325,7 @@ public class USSDAPI {
 
             String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
 
-            String strLoansXML = "";//USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
+            String strLoansXML = "";// USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
 
             strLoansXML = CBSAPI.getMobileLoanList(strMobileNumber, strLoanCategory, theLoanAccount);
 //
@@ -2266,7 +2360,7 @@ public class USSDAPI {
         try {
             String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
 
-            String strLoansXML = "";//USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
+            String strLoansXML = "";// USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
 
             strLoansXML = CBSAPI.getErroneousTransactions(strMobileNumber);
 
@@ -2302,7 +2396,7 @@ public class USSDAPI {
         LinkedList<String> loans = new LinkedList<String>();
         try {
 
-            String strLoansXML = "";//USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
+            String strLoansXML = "";// USSDAPIDB.getUserAccountDetails(theUSSDRequest, atAccountType);
 
             strLoansXML = CBSAPI.UpdateErroneousTransactions(theId, theAccount);
 
@@ -2594,10 +2688,10 @@ public class USSDAPI {
             Instant instEnd;
             instStart = Instant.now();
             System.out.println("Making API Call To NAV");*/
-            String strLoansXML = "";//Navision.getPort().getAgentDetails(strAgentCode);
-            //instEnd = Instant.now();
-            //Duration durTimeElapsed = Duration.between(instStart, instEnd);
-            //USSDAPIDB.fnProfileCallsToCBS("GetAgentDetails", durTimeElapsed, "CBS");
+            String strLoansXML = "";// Navision.getPort().getAgentDetails(strAgentCode);
+            // instEnd = Instant.now();
+            // Duration durTimeElapsed = Duration.between(instStart, instEnd);
+            // USSDAPIDB.fnProfileCallsToCBS("GetAgentDetails", durTimeElapsed, "CBS");
             /*instEnd = null;
             instStart = null;
             durTimeElapsed = null;*/
@@ -2831,7 +2925,7 @@ public class USSDAPI {
         boolean blRval = false;
         try {
             String strUserPhoneNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
-            blRval = false;//Navision.getPort().employerRestriction(strUserPhoneNumber, theTransaction);
+            blRval = false;// Navision.getPort().employerRestriction(strUserPhoneNumber, theTransaction);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -2913,9 +3007,9 @@ public class USSDAPI {
             String strMemberName = CBSAPI.getMemberName(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
 
             String strSalutations = "Dear " + strMemberName + ",<br/>\n" +
-                    "Thank you for showing interest in our loan products.<br/>\n" +
-                    "Kindly find the terms and conditions for " + strLoanTypeName + " attached in this email.<br/>\n" +
-                    "</div>";
+                                    "Thank you for showing interest in our loan products.<br/>\n" +
+                                    "Kindly find the terms and conditions for " + strLoanTypeName + " attached in this email.<br/>\n" +
+                                    "</div>";
 
             String strFileName = "files/Defence SACCO Terms and Conditions.pdf";
             String strFilePath = "" + strFileName;
@@ -2981,15 +3075,15 @@ public class USSDAPI {
 
     public void sendLoansTnCsViaSMS(USSDRequest theUSSDRequest, String theLoanType, String strLoanName) {
         try {
-            //todo:get loan type url
-            String strLoanTNCsURL = "https://timesusacco.com";//Navision.getPort().applyLoan();
+            // todo:get loan type url
+            String strLoanTNCsURL = "https://timesusacco.com";// Navision.getPort().applyLoan();
 
             String strMemberName = CBSAPI.getMemberName(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
 
             String strMSG = "" +
-                    "Dear " + strMemberName + ",\n" +
-                    "Kindly visit " + strLoanTNCsURL + " to read the TERMS & CONDITIONS for " + strLoanName + ".\n" +
-                    "REF: ." + APIUtils.fnModifyUSSDSessionID(theUSSDRequest);
+                            "Dear " + strMemberName + ",\n" +
+                            "Kindly visit " + strLoanTNCsURL + " to read the TERMS & CONDITIONS for " + strLoanName + ".\n" +
+                            "REF: ." + APIUtils.fnModifyUSSDSessionID(theUSSDRequest);
 
             String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
             String strTraceID = theUSSDRequest.getUSSDTraceID();
@@ -3137,10 +3231,10 @@ public class USSDAPI {
 
             String workingDir = System.getProperty("user.dir");
 
-            //String strFileName = "File Reports as at "+strCurrentDate+".pdf".replaceAll(" ", "_");
-            //String strFilePath = workingDir+File.separator+"files"+File.separator+strFileName;
+            // String strFileName = "File Reports as at "+strCurrentDate+".pdf".replaceAll(" ", "_");
+            // String strFilePath = workingDir+File.separator+"files"+File.separator+strFileName;
             String strFileName = "O:\\skyworld\\temp\\" + strSessionId + ".pdf";
-            //String strFilePath = "E:\\MobileBanking\\Services\\MBankingServer\\workspace\\files\\"+strFileName;
+            // String strFilePath = "E:\\MobileBanking\\Services\\MBankingServer\\workspace\\files\\"+strFileName;
 
             StringBuilder sbAllHtml = new StringBuilder();
             BufferedReader brFooter = new BufferedReader(new FileReader(new File("files/reports/both.html")));
@@ -3153,86 +3247,86 @@ public class USSDAPI {
             String strPassword = Utils.generateRandomString(6);
 
             String strMSG = "" +
-                    "Dear " + strName.split(" ")[0] + ",\n" +
-                    "Kindly use " + strPassword + " as the password for the file sent to you via e-mail\n" +
-                    "REF: ." + APIUtils.fnModifyUSSDSessionID(theUSSDRequest);
+                            "Dear " + strName.split(" ")[0] + ",\n" +
+                            "Kindly use " + strPassword + " as the password for the file sent to you via e-mail\n" +
+                            "REF: ." + APIUtils.fnModifyUSSDSessionID(theUSSDRequest);
 
             String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
             String strTraceID = theUSSDRequest.getUSSDTraceID();
             fnSendSMS(String.valueOf(theUSSDRequest.getUSSDMobileNo()), strMSG, "YES", MSGConstants.MSGMode.EXPRESS, 200, "LOANS_TERMS_AND_CONDITIONS", "USSD", "MBANKING_SERVER", strUSSDSessionID, strTraceID);
 
             String strReportBody = "" +
-                    "<tr>\n" +
-                    "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent;  visibility: hidden;\" colspan=\"6\">.</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">Mobile Banking Users</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title\">Product Name</td>\n" +
-                    "                <td class=\"bold-text\">Total Users</td>\n" +
-                    "                <td class=\"bold-text\">Active</td>\n" +
-                    "                <td class=\"bold-text\">Inactive</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">All Mobile Banking</td>\n" +
-                    "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
-                    "                <td colspan=\"2\"></td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">USSD</td>\n" +
-                    "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
-                    "                <td>" + strActiveUSSDUsers + "</td>\n" +
-                    "                <td>" + strInActiveUSSDUsers + "</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">Mobile App</td>\n" +
-                    "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
-                    "                <td>" + strActiveMAPPUsers + "</td>\n" +
-                    "                <td>" + strInActiveMAPPUsers + "</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent;  visibility: hidden;\" colspan=\"6\">.</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">System Security</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title\">Product Name</td>\n" +
-                    "                <td class=\"bold-text\">First Suspension</td>\n" +
-                    "                <td class=\"bold-text\">Second Suspension</td>\n" +
-                    "                <td class=\"bold-text\">Blocked</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">Mobile Banking PIN</td>\n" +
-                    "                <td>" + strLoginFirstSuspendedUsers + "</td>\n" +
-                    "                <td>" + strLoginSecondSuspendedUsers + "</td>\n" +
-                    "                <td>" + strLoginBlockedUsers + "</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">One Time Password (OTP)</td>\n" +
-                    "                <td>" + strOTPFirstSuspendedUsers + "</td>\n" +
-                    "                <td>" + strOTPSecondSuspendedUsers + "</td>\n" +
-                    "                <td>" + strOTPBlockedUsers + "</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent; visibility: hidden;\" colspan=\"6\">.</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">User Growth Statistics</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr>\n" +
-                    "                <td class=\"table-column-title\">Statistic</td>\n" +
-                    "                <td class=\"bold-text\">Past 1 Day</td>\n" +
-                    "                <td class=\"bold-text\">Past 1 Week</td>\n" +
-                    "                <td class=\"bold-text\">Past 1 Month</td>\n" +
-                    "            </tr>\n" +
-                    "            <tr class=\"right-align\">\n" +
-                    "                <td class=\"left-align\">New Users</td>\n" +
-                    "                <td>" + strGrowthStatisticsPastDay + "</td>\n" +
-                    "                <td>" + strGrowthStatisticsPastWeek + "</td>\n" +
-                    "                <td>" + strGrowthStatisticsPastMonth + "</td>\n" +
-                    "            </tr>";
+                                   "<tr>\n" +
+                                   "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent;  visibility: hidden;\" colspan=\"6\">.</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">Mobile Banking Users</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title\">Product Name</td>\n" +
+                                   "                <td class=\"bold-text\">Total Users</td>\n" +
+                                   "                <td class=\"bold-text\">Active</td>\n" +
+                                   "                <td class=\"bold-text\">Inactive</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">All Mobile Banking</td>\n" +
+                                   "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
+                                   "                <td colspan=\"2\"></td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">USSD</td>\n" +
+                                   "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
+                                   "                <td>" + strActiveUSSDUsers + "</td>\n" +
+                                   "                <td>" + strInActiveUSSDUsers + "</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">Mobile App</td>\n" +
+                                   "                <td>" + strTotalMobileBankingUsers + "</td>\n" +
+                                   "                <td>" + strActiveMAPPUsers + "</td>\n" +
+                                   "                <td>" + strInActiveMAPPUsers + "</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent;  visibility: hidden;\" colspan=\"6\">.</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">System Security</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title\">Product Name</td>\n" +
+                                   "                <td class=\"bold-text\">First Suspension</td>\n" +
+                                   "                <td class=\"bold-text\">Second Suspension</td>\n" +
+                                   "                <td class=\"bold-text\">Blocked</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">Mobile Banking PIN</td>\n" +
+                                   "                <td>" + strLoginFirstSuspendedUsers + "</td>\n" +
+                                   "                <td>" + strLoginSecondSuspendedUsers + "</td>\n" +
+                                   "                <td>" + strLoginBlockedUsers + "</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">One Time Password (OTP)</td>\n" +
+                                   "                <td>" + strOTPFirstSuspendedUsers + "</td>\n" +
+                                   "                <td>" + strOTPSecondSuspendedUsers + "</td>\n" +
+                                   "                <td>" + strOTPBlockedUsers + "</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title\" style=\"border-left: 1px solid transparent; border-right: 1px solid transparent; color: transparent; visibility: hidden;\" colspan=\"6\">.</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title table-column-title-colored\" colspan=\"6\">User Growth Statistics</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr>\n" +
+                                   "                <td class=\"table-column-title\">Statistic</td>\n" +
+                                   "                <td class=\"bold-text\">Past 1 Day</td>\n" +
+                                   "                <td class=\"bold-text\">Past 1 Week</td>\n" +
+                                   "                <td class=\"bold-text\">Past 1 Month</td>\n" +
+                                   "            </tr>\n" +
+                                   "            <tr class=\"right-align\">\n" +
+                                   "                <td class=\"left-align\">New Users</td>\n" +
+                                   "                <td>" + strGrowthStatisticsPastDay + "</td>\n" +
+                                   "                <td>" + strGrowthStatisticsPastWeek + "</td>\n" +
+                                   "                <td>" + strGrowthStatisticsPastMonth + "</td>\n" +
+                                   "            </tr>";
 
             String strAllHtml = sbAllHtml.toString().replaceAll("REPORT_BODY", strReportBody);
 
@@ -3319,7 +3413,7 @@ public class USSDAPI {
             System.out.println("strAction: " + strAction);
             System.out.println("strAccount: " + strAccount);
 
-            //boolean blDeactivationStatus = Navision.getPort().actionServiceForUser(strAction, strAccount, "WD_TO_OTHER");
+            // boolean blDeactivationStatus = Navision.getPort().actionServiceForUser(strAction, strAccount, "WD_TO_OTHER");
             boolean blDeactivationStatus = true;
 
             if (blDeactivationStatus) {
@@ -3362,5 +3456,51 @@ public class USSDAPI {
         }
 
         return MODBillTypeBranches;
+    }
+
+    public String getUserDateOfBirth(String strUserPhoneNumber) {
+        String strDateOfBirth = "";
+
+        TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                SystemTables.TBL_CUSTOMER_REGISTER_SIGNATORIES, "date_of_birth",
+                new FilterPredicate("primary_mobile_number = :primary_mobile_number"),
+                new FlexicoreHashMap().addQueryArgument(":primary_mobile_number", strUserPhoneNumber));
+
+        if (signatoryDetailsWrapper.hasErrors()) {
+            return strDateOfBirth;
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+        if (signatoryDetailsMap != null && !signatoryDetailsMap.isEmpty()) {
+            strDateOfBirth = signatoryDetailsMap.getStringValue("date_of_birth");
+        }
+
+        return strDateOfBirth;
+    }
+
+    public TransactionWrapper<FlexicoreHashMap> setPIN(USSDRequest theUSSDRequest) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+            String strNewPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.SET_PIN_CONFIRM_PIN.name());
+
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            return CBSAPI.setUserPIN(strReferenceKey, "MSISDN", strMobileNumber, strNewPIN, "IMSI", strSIMID);
+        } catch (Exception e) {
+            e.printStackTrace();
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+
+        return resultWrapper;
     }
 }

@@ -88,16 +88,16 @@ public class APIUtils {
     public static String ENCRYPTION_KEY = "6l04zjBa*iuGSv6l(2akwfqA";
     public static String TEMPORARY_DATA_ENCRYPTION_KEY = "kbXxjOAEzvcSa5Wo4e4qWFymeAZdAoaZ";
 
-    public static Object toHashMap(String objStr, TypeReference T){
-        ObjectMapper objectMapper = new ObjectMapper();
-        Map map = new HashMap();
-        try {
-            map = objectMapper.readValue(objStr, T);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return map;
-    }
+    // public static Object toHashMap(String objStr, TypeReference T){
+    //     ObjectMapper objectMapper = new ObjectMapper();
+    //     Map map = new HashMap();
+    //     try {
+    //         map = objectMapper.readValue(objStr, T);
+    //     } catch (IOException e) {
+    //         e.printStackTrace();
+    //     }
+    //     return map;
+    // }
 
     public static String serialize(Object obj){
         ObjectMapper objectMapper = new ObjectMapper();
@@ -141,6 +141,16 @@ public class APIUtils {
             e.printStackTrace();
         }
         return loans;
+    }
+
+    public static double roundUp(double number) {
+        if (number % 1 == 0) {
+            // If the number is already an integer, return it as is
+            return number;
+        } else {
+            // Otherwise, round it up to the nearest integer
+            return Math.ceil(number);
+        }
     }
 
     /*public static String sanitizePhoneNumber(String thePhoneNumber){

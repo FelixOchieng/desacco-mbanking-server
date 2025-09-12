@@ -108,7 +108,7 @@ public interface UtilitiesMenus {
             switch (theParam) {
                 case "MENU": {
                     strHeader += " \nSelect account\n";
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT, AppConstants.USSDDataType.ETOPUP_END);
                     break;
                 }
                 case "ACCOUNT": {
@@ -116,7 +116,7 @@ public interface UtilitiesMenus {
                     MemberRegisterResponse registerResponse = RegisterProcessor.getMemberRegister(RegisterConstants.MemberRegisterIdentifierType.ACCOUNT_NO, strAccount, RegisterConstants.MemberRegisterType.BLACKLIST);
                     if(registerResponse.getResponseType().equals(APIConstants.RegisterViewResponse.VALID.getValue()) && 1 != 1) {
                         strHeader = strHeader + "\nSorry the selected account is not registered to perform this transaction.\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT, AppConstants.USSDDataType.ETOPUP_END);
                     } else {
                         if (strAccount.length() > 0){
                             /*String strResponse = strHeader+"\nEnter amount:";
@@ -126,7 +126,7 @@ public interface UtilitiesMenus {
 
                         }else{
                             String strHeader2 = strHeader + " \n{Select a valid account}\n";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.ETOPUP_ACCOUNT, AppConstants.USSDDataType.ETOPUP_END);
                         }
                     }
                     break;
@@ -337,7 +337,7 @@ public interface UtilitiesMenus {
                     switch (strAction) {
                         case "CHOICE": {
                             String strHeader2 = strHeader + " \nSelect paying account\n";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT, AppConstants.USSDDataType.PAY_BILL_END);
                             break;
                         }
                         case "ADD": {
@@ -369,14 +369,14 @@ public interface UtilitiesMenus {
                     MemberRegisterResponse registerResponse = RegisterProcessor.getMemberRegister(RegisterConstants.MemberRegisterIdentifierType.ACCOUNT_NO, strFromAccount, RegisterConstants.MemberRegisterType.BLACKLIST);
                     if(registerResponse.getResponseType().equals(APIConstants.RegisterViewResponse.VALID.getValue()) && 1 != 1) {
                         strHeader = strHeader + "\nSorry the selected account is not registered to perform this transaction.\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT, AppConstants.USSDDataType.PAY_BILL_END);
                     } else {
                         if( strFromAccount.length() > 0 ){
                             String strResponse = strHeader+"\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.PAY_BILL_AMOUNT, USSDConstants.USSDInputType.STRING,"NO");
                         }else {
                             String strHeader2 = strHeader + " \n{Select a valid paying account}\n";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader2, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_BILL_FROM_ACCOUNT, AppConstants.USSDDataType.PAY_BILL_END);
                         }
                     }
 

@@ -12,7 +12,7 @@ public class AppConstants {
 //    public final static String strMBankingUSSDSubCode = "0";
 
     public final static String strMBankingUSSDCode = "882";
-    public final static String strMBankingUSSDSubCode = "6";
+    public final static String strMBankingUSSDSubCode = "93";
 
     public final static String strMBankingUSSDCode2 = "882";
     public final static String strMBankingUSSDSubCode2 = "0";

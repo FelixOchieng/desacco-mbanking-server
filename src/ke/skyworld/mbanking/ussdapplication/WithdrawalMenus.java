@@ -33,7 +33,7 @@ public interface WithdrawalMenus {
             switch (theParam) {
                 case "MENU": {
                     String strHeader = "Withdraw to M-Pesa\nSelect Source Account\n";
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.WITHDRAWAL_END);
                     break;
                 }
 
@@ -43,7 +43,7 @@ public interface WithdrawalMenus {
                         MemberRegisterResponse registerResponse = RegisterProcessor.getMemberRegister(RegisterConstants.MemberRegisterIdentifierType.ACCOUNT_NO, strAccount, RegisterConstants.MemberRegisterType.BLACKLIST);
                         if(registerResponse.getResponseType().equals(APIConstants.RegisterViewResponse.VALID.getValue())) {
                             String strHeader = "M-Pesa Cash Withdrawal\nSorry the selected account is not allowed to perform this transaction.\n{Select a valid account}\n";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.WITHDRAWAL_END);
                         } else {
                             String strCashWithdrawalAction = "";
                             String strResponse = "M-Pesa Cash Withdrawal\nSelect Withdrawal Option";
@@ -62,7 +62,7 @@ public interface WithdrawalMenus {
                         }
                     }else{
                         String strHeader = "Withdraw to M-Pesa\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.WITHDRAWAL_END);
                     }
                     break;
                 }
@@ -637,7 +637,7 @@ public interface WithdrawalMenus {
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.AGENT_WITHDRAWAL_AGENT_NO, USSDConstants.USSDInputType.STRING,"NO");
                         } else {
                             String strHeader = "Harambee Pesa Agent Cash Withdrawal\nSelect account\n";
-                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.AGENT_WITHDRAWAL_ACCOUNT);
+                            theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.AGENT_WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.AGENT_WITHDRAWAL_END);
                         }
                     }
                     else {
@@ -653,7 +653,7 @@ public interface WithdrawalMenus {
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.AGENT_WITHDRAWAL_AMOUNT, USSDConstants.USSDInputType.STRING,"NO");
                     }else{
                         String strHeader = "Harambee Pesa Agent Cash Withdrawal\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.AGENT_WITHDRAWAL_ACCOUNT);
+                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.AGENT_WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.AGENT_WITHDRAWAL_END);
                     }
                     break;
                 }

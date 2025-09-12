@@ -1,6 +1,10 @@
 package ke.skyworld.mbanking.ussdapplication;
 
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreArrayList;
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.utility_items.data_formatting.Converter;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
 import ke.skyworld.lib.mbanking.pesa.PESALocalParameters;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
@@ -8,9 +12,11 @@ import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
 import ke.skyworld.lib.mbanking.utils.Utils;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
+import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import ke.skyworld.sp.manager.SPManager;
 import ke.skyworld.sp.manager.SPManagerConstants;
 import org.w3c.dom.NodeList;
@@ -19,7 +25,7 @@ import java.util.*;
 
 public interface GeneralMenus {
 
-    static USSDResponse displayMenu_BankAccounts(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType) {
+    static USSDResponse displayMenu_BankAccounts(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType, AppConstants.USSDDataType theUSSD_END_DataType) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         USSDAPI theUSSDAPI = new USSDAPI();
@@ -29,26 +35,85 @@ public interface GeneralMenus {
 
             String strGroup = theUSSDRequest.getUSSDData().getOrDefault(AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT_GROUP.name(), "");
 
-            LinkedHashMap<String, String> accounts = theUSSDAPI.getBankAccounts(theUSSDRequest, theAccountType, strGroup);
+            FlexicoreArrayList accountsList = theUSSDAPI.getBankAccounts_V2(theUSSDRequest, theAccountType, strGroup);
 
-            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+            if (accountsList != null && !accountsList.isEmpty()) {
+                /**
+                 *{
+                 *   "account_name": "PETER MAKAU MUTUA",
+                 *   "account_label": "CURRENT",
+                 *   "account_number": "1081086730",
+                 *   "account_type": "FOSA",
+                 *   "account_balance": 459539.04,
+                 *   "book_balance": 459603.76,
+                 *   "account_status": "ACTIVE",
+                 *   "can_withdraw": "YES",
+                 *   "max_withdrawable_amount": 459539.04,
+                 *   "can_deposit": "YES",
+                 *   "max_deposit_amount": 999999999999,
+                 *   "can_withdraw_ift": "YES",
+                 *   "can_deposit_ift": "YES",
+                 *   "product_id": "CURRENT",
+                 *   "product_name": "Current Account",
+                 *   "show_balance": true
+                 *}
+                 */
 
-            if (accounts != null) {
-                int i = 0;
-                for (String account : accounts.keySet()) {
-                    i++;
-                    String strAccount = account;
-                    String strAccountType = accounts.get(account);
+                boolean foundAccounts = false;
 
-                    String strOptionValue = strAccount;
-                    String strOptionMenu = Integer.toString(i);
-                    String strOptionDisplayText = strOptionMenu + ": " + strAccountType;// + " (" + strAccount + ")"; //"1: Member Acct.(10101010101)"
+                int intOptionMenu = 1;
+                for (FlexicoreHashMap accountMap : accountsList) {
 
-                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strOptionValue, strOptionDisplayText);
+                    String strAccountStatus = accountMap.getStringValue("account_status").trim();
+                    String strAccountNumber = accountMap.getStringValue("account_number").trim();
+                    String strAccountLabel = accountMap.getStringValue("account_label").trim();
+                    String strAccountBookBalance = accountMap.getStringValue("account_balance").trim();
+                    String strCanDeposit = accountMap.getStringValue("can_deposit").trim();
+                    String strCanWithdraw = accountMap.getStringValue("can_withdraw").trim();
+
+
+                    if (theUSSDDataType == AppConstants.USSDDataType.DEPOSIT_ACCOUNT) {
+                        if (!strCanDeposit.equalsIgnoreCase("YES")) continue;
+                    }
+
+
+                    if (theAccountType.getValue().equalsIgnoreCase(USSDAPIConstants.AccountType.WITHDRAWABLE.getValue())) {
+                        if (!strCanWithdraw.equalsIgnoreCase("YES") || !strAccountStatus.equalsIgnoreCase("ACTIVE")) {
+                            continue;
+                        }
+                    }
+
+                    if (theAccountType.getValue().equalsIgnoreCase(USSDAPIConstants.AccountType.WITHDRAWABLE_IFT.getValue())) {
+                        if (!strAccountStatus.equalsIgnoreCase("ACTIVE")) {
+                            continue;
+                        }
+                    }
+
+                    foundAccounts = true;
+
+                    HashMap<String, String> hmOption = new HashMap<>();
+                    hmOption.put("ac_no", strAccountNumber);
+                    hmOption.put("ac_name", strAccountLabel);
+                    hmOption.put("ac_label", strAccountLabel);
+                    hmOption.put("ac_bal", strAccountBookBalance);
+
+                    String optionName = Converter.toJson(hmOption);
+
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(intOptionMenu), optionName, intOptionMenu + ": " + strAccountLabel + "-" + strAccountNumber);
+
+                    intOptionMenu++;
                 }
-            }
 
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+
+
+            }else{
+                String strResponse = "Sorry, no accounts found." + CBSAPI.getTrailerMessage();
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSD_END_DataType, "NO", theArrayListUSSDSelectOption);
+                return theUSSDResponse;
+            }
 
         } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_BankAccounts() ERROR : " + e.getMessage());
@@ -59,34 +124,78 @@ public interface GeneralMenus {
         return theUSSDResponse;
     }
 
-    static USSDResponse displayMenu_Loans(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType, String theGroupSelected) {
+    static USSDResponse displayMenu_Loans(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType, AppConstants.USSDDataType theUSSD_END_DataType) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         USSDAPI theUSSDAPI = new USSDAPI();
         try {
             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
 
-            LinkedHashMap<String, LinkedHashMap<String, String>> loans = theUSSDAPI.getLoans(theUSSDRequest, theGroupSelected);
+            TransactionWrapper<FlexicoreHashMap> accountsListWrapper = theUSSDAPI.getLoans_V2(theUSSDRequest);
 
-            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+            if (accountsListWrapper.hasErrors()) {
+                FlexicoreHashMap customersListMap = accountsListWrapper.getSingleRecord();
+                USSDAPIConstants.Condition endSession = customersListMap.getValue("end_session");
+                String strResponse = accountsListWrapper.getSingleRecord().getStringValue("display_message");
 
-            if (loans != null) {
-                int i = 0;
-                for (String loan : loans.keySet()) {
-                    i++;
-                    LinkedHashMap<String, String> hmLoan = loans.get(loan);
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSD_END_DataType, "NO", theArrayListUSSDSelectOption);
 
-                    String strOptionValue = Utils.serialize(hmLoan);
-                    String strLoanName = hmLoan.get("LOAN_NAME");
-                    String strLoanID = hmLoan.get("LOAN_ID");
-                    String strOptionMenu = Integer.toString(i);
-                    String strOptionDisplayText = strOptionMenu + ": " + strLoanName;
-
-                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strOptionValue, strOptionDisplayText);
-                }
+                return theUSSDResponse;
             }
 
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+            FlexicoreArrayList accountsList = accountsListWrapper.getSingleRecord().getFlexicoreArrayList("payload");
+
+            if (accountsList.isEmpty()) {
+
+                String strResponse = "No loans found";
+
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSD_END_DataType, "NO", theArrayListUSSDSelectOption);
+
+            }
+            else {
+
+                int intOptionMenu = 1;
+                for (FlexicoreHashMap accountMap : accountsList) {
+
+                    String strAccountName = accountMap.getStringValue("loan_type_name").trim();
+                    String strAccountNumber = accountMap.getStringValue("loan_serial_number").trim();
+                    String strAccountBalance = accountMap.getStringValue("loan_balance").trim();
+                    String strInterestBalance = accountMap.getStringValue("interest_amount").trim();
+                    //String strAccountLabel = accountMap.getStringValue("account_label").trim();
+
+                    /*strAccountBalance = strAccountBalance.replaceFirst("-", "");
+                    strInterestBalance = strInterestBalance.replaceFirst("-", "");*/
+
+                    double dblAccountBalance = Double.parseDouble(strAccountBalance);
+                    double dblInterestBalance = Double.parseDouble(strInterestBalance);
+
+                    dblAccountBalance = APIUtils.roundUp(dblAccountBalance);
+                    dblInterestBalance = APIUtils.roundUp(dblInterestBalance);
+
+                    if (dblAccountBalance + dblInterestBalance <= 0.00) {
+                        continue;
+                    }
+
+                    HashMap<String, String> hmOption = new HashMap<>();
+                    hmOption.put("ac_no", strAccountNumber);
+                    hmOption.put("ac_name", strAccountName);
+                    hmOption.put("ac_label", strAccountName);
+                    hmOption.put("bal", Utils.formatDouble(dblAccountBalance, "##0.00"));
+                    hmOption.put("intr", Utils.formatDouble(dblInterestBalance, "##0.00"));
+
+                    String optionName = Converter.toJson(hmOption);
+
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(intOptionMenu), optionName, intOptionMenu + ": " + strAccountName + "-" + strAccountNumber);
+                    intOptionMenu++;
+                }
+
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+
+            }
 
         } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_Loans() ERROR : " + e.getMessage());

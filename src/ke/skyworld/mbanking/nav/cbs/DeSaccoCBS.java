@@ -9,6 +9,7 @@ import ke.co.skyworld.smp.utility_items.counters.Watch;
 import ke.co.skyworld.smp.utility_items.data_formatting.Converter;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.NTCredentials;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
@@ -299,8 +300,8 @@ public class DeSaccoCBS {
                         .putValue("command", theCommand)
                         .putValue("transaction_initiator_details", new FlexicoreHashMap()
                                 .putValue("identifier_type", theInitiatorDetailsMap.getStringValueOrIfNull("identifier_type", ""))
-                                .putValue("identifier", getTheIdentifier(theInitiatorDetailsMap.getStringValueOrIfNull("identifier", "")))
-                                .putValue("account", getTheIdentifier(theInitiatorDetailsMap.getStringValueOrIfNull("account", "")))
+                                .putValue("identifier", theInitiatorDetailsMap.getStringValueOrIfNull("identifier", ""))
+                                .putValue("account", theInitiatorDetailsMap.getStringValueOrIfNull("account", ""))
                                 .putValue("name", theInitiatorDetailsMap.getStringValueOrIfNull("name", ""))
                                 .putValue("reference", theInitiatorDetailsMap.getStringValueOrIfNull("reference", ""))
                                 .putValue("other_details", theInitiatorDetailsMap.getStringValueOrIfNull("other_details", ""))
@@ -323,16 +324,16 @@ public class DeSaccoCBS {
                         )
                         .putValue("transaction_receiver_details", new FlexicoreHashMap()
                                 .putValue("identifier_type", theReceiverDetailsMap.getStringValueOrIfNull("identifier_type", ""))
-                                .putValue("identifier", getTheIdentifier(theReceiverDetailsMap.getStringValueOrIfNull("identifier", "")))
-                                .putValue("account", getTheIdentifier(theReceiverDetailsMap.getStringValueOrIfNull("account", "")))
+                                .putValue("identifier", theReceiverDetailsMap.getStringValueOrIfNull("identifier", ""))
+                                .putValue("account", theReceiverDetailsMap.getStringValueOrIfNull("account", ""))
                                 .putValue("name", theReceiverDetailsMap.getStringValueOrIfNull("name", ""))
                                 .putValue("reference", theReceiverDetailsMap.getStringValueOrIfNull("reference", ""))
                                 .putValue("other_details", theReceiverDetailsMap.getStringValueOrIfNull("other_details", ""))
                         )
                         .putValue("transaction_beneficiary_details", new FlexicoreHashMap()
                                 .putValue("identifier_type", theBeneficiaryDetailsMap.getStringValueOrIfNull("identifier_type", ""))
-                                .putValue("identifier", getTheIdentifier(theBeneficiaryDetailsMap.getStringValueOrIfNull("identifier", "")))
-                                .putValue("account", getTheIdentifier(theBeneficiaryDetailsMap.getStringValueOrIfNull("account", "")))
+                                .putValue("identifier", theBeneficiaryDetailsMap.getStringValueOrIfNull("identifier", ""))
+                                .putValue("account", theBeneficiaryDetailsMap.getStringValueOrIfNull("account", ""))
                                 .putValue("name", theBeneficiaryDetailsMap.getStringValueOrIfNull("name", ""))
                                 .putValue("reference", theBeneficiaryDetailsMap.getStringValueOrIfNull("reference", ""))
                                 .putValue("other_details", theBeneficiaryDetailsMap.getStringValueOrIfNull("other_details", ""))
@@ -523,8 +524,8 @@ public class DeSaccoCBS {
                         .putValue("identifier", theIdentifier)
                         .putValue("transaction_initiator_details", new FlexicoreHashMap()
                                 .putValue("identifier_type", theInitiatorDetailsMap.getStringValueOrIfNull("identifier_type", ""))
-                                .putValue("identifier", getTheIdentifier(theInitiatorDetailsMap.getStringValueOrIfNull("identifier", "")))
-                                .putValue("account", getTheIdentifier(theInitiatorDetailsMap.getStringValueOrIfNull("account", "")))
+                                .putValue("identifier", theInitiatorDetailsMap.getStringValueOrIfNull("identifier", ""))
+                                .putValue("account", theInitiatorDetailsMap.getStringValueOrIfNull("account", ""))
                                 .putValue("name", theInitiatorDetailsMap.getStringValueOrIfNull("name", ""))
                                 .putValue("reference", theInitiatorDetailsMap.getStringValueOrIfNull("reference", ""))
                                 .putValue("other_details", theInitiatorDetailsMap.getStringValueOrIfNull("other_details", ""))
@@ -1140,7 +1141,7 @@ public class DeSaccoCBS {
         watch.start();
 
         String requestXML = """
-                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:dyn="urn:microsoft-dynamics-schemas/codeunit/ChannelPostMgt">
+                <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:dyn="urn:microsoft-dynamics-schemas/codeunit/SkyMBankingAPI">
                     <soapenv:Header/>
                     <soapenv:Body>
                         <dyn:HandleRequest>
@@ -1195,14 +1196,14 @@ public class DeSaccoCBS {
                 });
             }*/
 
-            // credentialsProvider.setCredentials(
-            //         new AuthScope(new AuthScope(strHost, strPort)),
-            //         new NTCredentials(DeSaccoCBSParams.getUser(),
-            //                 DeSaccoCBSParams.getPassword().toCharArray(), ".", DeSaccoCBSParams.getDomain()));
-
             credentialsProvider.setCredentials(
-                    new AuthScope(new AuthScope(strHost, strPort)), new UsernamePasswordCredentials(DeSaccoCBSParams.getUser(),
-                            DeSaccoCBSParams.getPassword().toCharArray()));
+                    new AuthScope(new AuthScope(strHost, strPort)),
+                    new NTCredentials(DeSaccoCBSParams.getUser(),
+                            DeSaccoCBSParams.getPassword().toCharArray(), ".", DeSaccoCBSParams.getDomain()));
+
+            // credentialsProvider.setCredentials(
+            //         new AuthScope(new AuthScope(strHost, strPort)), new UsernamePasswordCredentials(DeSaccoCBSParams.getUser(),
+            //                 DeSaccoCBSParams.getPassword().toCharArray()));
 
             if (DeSaccoCBSParams.isLogRequestEnabled()) {
                 if (!theAction.equalsIgnoreCase("CALL_SERVICE")) {
@@ -1270,22 +1271,6 @@ public class DeSaccoCBS {
         return port;
     }
 
-    // TODO: REMOVE IN PRODUCTION
-    public static String getTheIdentifier(String theIdentifier) {
-        /*if (theIdentifier.equalsIgnoreCase("254790491947")) {
-            theIdentifier = "254721565634";
-        }*/
-
-        if (theIdentifier.equalsIgnoreCase("254714443500")) {
-            theIdentifier = "254723621276";
-        }
-
-     /*   if (theIdentifier.equalsIgnoreCase("254723631593")) {
-            theIdentifier = "254721458364";
-        }*/
-
-        return theIdentifier;
-    }
 
     public static String getTheIdentifier(String theIdentifierType, String theIdentifier) {
         if (theIdentifierType != null && theIdentifierType.equalsIgnoreCase("MSISDN")) {

@@ -256,15 +256,15 @@ public interface DepositMenus {
             String strAccountTypes = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_CATEGORY.name());
             switch (strAccountTypes) {
                 case "FOSA": {
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, AccountType.FOSA, AppConstants.USSDDataType.DEPOSIT_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, AccountType.FOSA, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, AppConstants.USSDDataType.DEPOSIT_END);
                     break;
                 }
                 case "BOSA": {
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, AccountType.BOSA, AppConstants.USSDDataType.DEPOSIT_ACCOUNT);
+                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, AccountType.BOSA, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, AppConstants.USSDDataType.DEPOSIT_END);
                     break;
                 }
                 case "PAY_LOAN": {
-                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, AccountType.LOAN, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, "");
+                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, AccountType.LOAN, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, AppConstants.USSDDataType.DEPOSIT_END);
                     break;
                 }
             }

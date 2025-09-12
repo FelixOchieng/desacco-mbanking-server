@@ -107,17 +107,17 @@ public interface MiniStatementMenus {
                             switch (theAccountType){
                                 case FOSA:{
                                     String strResponse  = strHeader + "\nSelect account";
-                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                                 case  BOSA:{
                                     String strResponse  = strHeader + "\nSelect account";
-                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                                 case LOAN:{
                                     String strResponse  = strHeader + "\nSelect Loan";
-                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, "");
+                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                             }
@@ -136,17 +136,17 @@ public interface MiniStatementMenus {
                             switch (theAccountType){
                                 case FOSA:{
                                     String strResponse  = strHeader + "\nSelect account";
-                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                                 case  BOSA:{
                                     String strResponse  = strHeader + "\nSelect account";
-                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                                 case LOAN:{
                                     String strResponse  = strHeader + "\nSelect Loan";
-                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, "");
+                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                     break;
                                 }
                             }
@@ -171,17 +171,17 @@ public interface MiniStatementMenus {
                         switch (theAccountType){
                             case FOSA:{
                                 String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                             case  BOSA:{
                                 String strResponse  = strHeader + "\nSelect account";
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                             case LOAN:{
                                 String strResponse  = strHeader + "\nSelect Loan";
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, strAccountType);
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                         }
@@ -203,15 +203,15 @@ public interface MiniStatementMenus {
                         String strResponse  = strHeader + "\n{Select a valid menu}";
                         switch (theAccountType){
                             case FOSA:{
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.FOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                             case  BOSA:{
-                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT);
+                                theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                             case LOAN:{
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, strGroup);
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strResponse, APIConstants.AccountType.BOSA, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END);
                                 break;
                             }
                         }
