@@ -29,6 +29,29 @@ public class AppUtils {
 		return theUSSDDataType;
 	}
 
+    public static String maskPhoneNumber(String phoneNumber) {
+
+        try {
+            phoneNumber = phoneNumber.replaceAll("\\s*", "");
+
+            if (phoneNumber.length() < 6) {
+                return phoneNumber;
+            }
+
+            String lastThreeDigits = phoneNumber.substring(phoneNumber.length() - 3);
+
+            String maskedPart = "******";
+
+            String remainingDigits = phoneNumber.substring(0, phoneNumber.length() - 6);
+
+            return remainingDigits + maskedPart + lastThreeDigits;
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return phoneNumber;
+    }
+
 	public static String sanitizePhoneNumber(String thePhoneNumber){
 		thePhoneNumber = thePhoneNumber.trim();
 		try {

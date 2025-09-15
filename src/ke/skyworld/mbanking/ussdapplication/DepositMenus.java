@@ -1,5 +1,7 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingUtils;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
@@ -13,6 +15,7 @@ import ke.skyworld.mbanking.ussdapi.USSDAPI;
 import ke.skyworld.lib.mbanking.utils.Utils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 
@@ -92,51 +95,104 @@ public interface DepositMenus {
                     }
                     break;
                 }
+
                 case "OTHER_ACCOUNT": {
                     strHeader += "Enter member's account number";
                     theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                     break;
                 }
+
                 case "ACCOUNT": {
                     String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_ACCOUNT.name());
+                    String strDepositOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_OPTION.name());
 
-                    if (!Objects.equals(strAccount, "")) {
-                        String strToOption = "Account No";
-                        LinkedHashMap<String, String> account = theUSSDAPI.getMemberAccountDetails(theUSSDRequest, strToOption, strAccount);
+                    if(strDepositOption.equals("MY_ACCOUNT")) {
+                        HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                        String strAccountNumber = hmAccount.get("ac_no");
 
-                        if(account!=null) {
+                        if (!strAccountNumber.isEmpty()) {
+                            String strToOption = "Account No";
+                            // LinkedHashMap<String, String> account = theUSSDAPI.getMemberAccountDetails(theUSSDRequest, strToOption, strAccount);
+                            //
+                            // if(account!=null) {
+                            //     strHeader += "Enter amount:";
+                            //     theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.DEPOSIT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            // } else {
+                            //     strHeader += "{Invalid account number}\nEnter member's account number:\n";
+                            //     theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            // }
+
                             strHeader += "Enter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.DEPOSIT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                         } else {
-                            strHeader += "{Invalid account number}\nEnter member's account number:\n";
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            strHeader += "{Select a valid menu}";
+                            theUSSDResponse = getBankAccounts(theUSSDRequest, theParam, strHeader);
                         }
-                    } else {
-                        strHeader += "{Select a valid menu}";
-                        theUSSDResponse = getBankAccounts(theUSSDRequest, theParam, strHeader);
                     }
+
+                    if(strDepositOption.equals("OTHER_ACCOUNT")) {
+                        TransactionWrapper<FlexicoreHashMap> validateAccountNumberWrapper = theUSSDAPI.validateAccount(theUSSDRequest, strAccount);
+
+                        if (validateAccountNumberWrapper.hasErrors()) {
+
+                            String strResponse = strHeader + "\n" + validateAccountNumberWrapper.getSingleRecord().getStringValue("display_message");
+
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.DEPOSIT_END, "NO", theArrayListUSSDSelectOption);
+
+                        } else {
+
+                            FlexicoreHashMap accountDetailsResultMap = validateAccountNumberWrapper.getSingleRecord();
+                            String canDeposit = accountDetailsResultMap.getStringValue("can_deposit");
+
+                            if (!canDeposit.equalsIgnoreCase("YES")) {
+                                String strResponse = strHeader + "\n" + "{Invalid account number}\nEnter member's account number:\n";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            } else {
+                                String fullName = accountDetailsResultMap.getStringValueOrIfNull("full_name", "");
+                                String[] fullNameArr = fullName.split(" ");
+                                fullName = fullNameArr[0];
+
+                                String strMobileNumber = accountDetailsResultMap.getStringValueOrIfNull("mobile_number", "");
+
+                                strMobileNumber = AppUtils.maskPhoneNumber(strMobileNumber);
+
+                                // String strResponse = strHeader + "-" + strAccount + "\nName: " + fullName + "\nPhone: " + strMobileNumber + "\n" + "\nEnter amount:";
+                                String strResponse = strHeader + "\nEnter amount:";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.DEPOSIT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            }
+                        }
+                    }
+
+
+
                     break;
                 }
                 case "AMOUNT": {
                     String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_AMOUNT.name());
                     if (strAmount.matches("^[1-9][0-9]*$")) {
                         String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_ACCOUNT.name());
+
+
                         strAmount = Utils.formatDouble(strAmount, "#,###");
 
                         String strDepositOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_OPTION.name());
 
                         String strMemberName = "";
 
-                        if(strDepositOption.equals("OTHER_ACCOUNT")){
-                            LinkedHashMap<String, String> account = theUSSDAPI.getMemberAccountDetails(theUSSDRequest, "Account No", strAccount);
+                        String strAccountNumber = "";
 
-                            if(account!=null) {
-                                String theAccountName = account.values().toArray()[0].toString();
-                                strMemberName = "\nName: "+theAccountName;
-                            }
+                        if(strDepositOption.equals("OTHER_ACCOUNT")){
+                            HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                            strAccountNumber = hmAccount.get("ac_no");
                         }
 
-                        String strResponse = "Confirm " + strHeader + "\nPaybill no.: " + strSender + "\nAccount: " + strAccount + strMemberName + "\n" + "Amount: KES " + strAmount + "\n";
+                        if(strDepositOption.equals("MY_ACCOUNT")){
+                            strAccountNumber = strAccount;
+                        }
+
+                        String strResponse = "Confirm " + strHeader + "\nPaybill no.: " + strSender + "\nAccount: " + strAccountNumber + strMemberName + "\n" + "Amount: KES " + strAmount + "\n";
 
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -172,10 +228,13 @@ public interface DepositMenus {
                             String strResponse;
 
                             String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_ACCOUNT.name());
+                            HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                            String strAccountNumber = hmAccount.get("ac_no");
+
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_AMOUNT.name());
 
                             if (theUSSDRequest.getUSSDProviderCode() == AppConstants.USSDProvider.SAFARICOM.getValue()) {
-                                strResponse = "You will be prompted by M-PESA for payment\nPaybill no: " + strSender + "\n" + "A/C: " + strAccount + "\n" + "Amount: KES " + strAmount + "\n";
+                                strResponse = "You will be prompted by M-PESA for payment\nPaybill no: " + strSender + "\n" + "A/C: " + strAccountNumber + "\n" + "Amount: KES " + strAmount + "\n";
 
                                 String strOriginatorID = Long.toString(theUSSDRequest.getUSSDSessionID());
                                 String strReceiver = Long.toString(theUSSDRequest.getUSSDMobileNo());
@@ -189,11 +248,11 @@ public interface DepositMenus {
 
                                 Thread worker = new Thread(() -> {
                                     PESAAPI thePESAAPI = new PESAAPI();
-                                    thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, strAccount, "KES", lnAmount, "ACCOUNT_DEPOSIT", strReference, "USSD", "MBANKING", strTraceID, strSessionID);
+                                    thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, strAccountNumber, "KES", lnAmount, "ACCOUNT_DEPOSIT", strReference, "USSD", "MBANKING", strTraceID, strSessionID);
                                 });
                                 worker.start();
                             } else {
-                                strResponse = "Use the details below to pay via M-PESA\nPaybill no: " + strSender + "\n" + "A/C: " + strAccount + "\n" + "Amount: KES " + strAmount + "\n";
+                                strResponse = "Use the details below to pay via M-PESA\nPaybill no: " + strSender + "\n" + "A/C: " + strAccountNumber + "\n" + "Amount: KES " + strAmount + "\n";
                             }
 
                             //End USSD.

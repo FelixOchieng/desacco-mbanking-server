@@ -173,8 +173,6 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        
-
         String strAction = "VALIDATE_ACCOUNT";
 
         FlexicoreHashMap requestBody = new FlexicoreHashMap()

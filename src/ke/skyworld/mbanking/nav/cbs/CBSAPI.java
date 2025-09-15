@@ -2186,7 +2186,7 @@ public class CBSAPI {
             TransactionWrapper<FlexicoreHashMap> accountBalanceWrapper = DeSaccoCBS.getLoanAccountBalance(theIdentifierType, theIdentifier, theAccountNumber, theSourceApplication);
 
             if (accountBalanceWrapper.hasErrors()) {
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getLoanAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
 
                 SMSMSG cbsMSG = new SMSMSG();
                 cbsMSG.setMessage("Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later.");
@@ -2214,7 +2214,7 @@ public class CBSAPI {
 
             if (requestStatus.equalsIgnoreCase("INSUFFICIENT_BAL")) {
 
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
                 accountBalanceResultMap.printRecordVerticalLabelled();
 
                 SMSMSG cbsMSG = new SMSMSG();
@@ -2237,7 +2237,7 @@ public class CBSAPI {
 
             if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
 
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
 
                 SMSMSG cbsMSG = new SMSMSG();
                 cbsMSG.setMessage("Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later.");
@@ -2401,7 +2401,7 @@ public class CBSAPI {
             TransactionWrapper<FlexicoreHashMap> accountBalanceWrapper = DeSaccoCBS.getDepositAccountBalance(theIdentifierType, theIdentifier, theAccountNumber, theSourceApplication);
 
             if (accountBalanceWrapper.hasErrors()) {
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
 
                 SMSMSG cbsMSG = new SMSMSG();
                 cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
@@ -2429,7 +2429,7 @@ public class CBSAPI {
 
             if (requestStatus.equalsIgnoreCase("INSUFFICIENT_BAL")) {
 
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
                 accountBalanceResultMap.printRecordVerticalLabelled();
 
                 SMSMSG cbsMSG = new SMSMSG();
@@ -2452,7 +2452,7 @@ public class CBSAPI {
 
             if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
 
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
                 accountBalanceResultMap.printRecordVerticalLabelled();
 
                 SMSMSG cbsMSG = new SMSMSG();
@@ -2563,7 +2563,7 @@ public class CBSAPI {
             TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType, false);
 
             if (customerAccountsListWrapper.hasErrors() && customerAccountsListWrapper.getStatusCode() != HttpsURLConnection.HTTP_NOT_FOUND) {
-                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getCustomerAccountsBALANCE_EQUIRY() - " + customerAccountsListWrapper.getErrors() + "\n" + customerAccountsListWrapper.getMessages());
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getCustomerAccountsBALANCE_EQUIRY() - " + customerAccountsListWrapper.getErrors() + "\n" + customerAccountsListWrapper.getMessages());
 
                 resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
                 resultWrapper.setHasErrors(true);
@@ -7424,6 +7424,68 @@ public class CBSAPI {
         }
 
         return userIdentifierDetails;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> validateAccountNumber(String strRequestingMobileNumber,
+                                                                             String theIdentifierType,
+                                                                             String theIdentifier,
+                                                                             String theAccountNumber) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+            TransactionWrapper<FlexicoreHashMap> accountDetailsWrapper = DeSaccoCBS.getAccountDetails(theIdentifierType, theIdentifier, theAccountNumber);
+
+            if (accountDetailsWrapper.hasErrors()) {
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getAccountDetails() - " + accountDetailsWrapper.getErrors() + "\n" + accountDetailsWrapper.getMessages());
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later.")
+                        .putValue("cbs_api_error_message", accountDetailsWrapper.getErrors() + " - " + accountDetailsWrapper.getMessages())
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap accountDetailsResultMap = accountDetailsWrapper.getSingleRecord();
+
+            String requestStatus = accountDetailsResultMap.getStringValue("request_status");
+
+            if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+                System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getAccountDetails(" + theAccountNumber + ")");
+                accountDetailsResultMap.printRecordVerticalLabelled();
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, account " + theAccountNumber + " not found")
+                        .putValue("cbs_api_error_message", "Sorry, account " + theAccountNumber + " not found")
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap accountDetailsResponseMap = accountDetailsResultMap.getFlexicoreHashMap("response_payload");
+
+            resultWrapper.setData(accountDetailsResponseMap);
+
+            return resultWrapper;
+        } catch (Exception e) {
+            System.err.println(theIdentifier + " => CBSAPI.validateAccountNumber(): " + e.getMessage());
+            e.printStackTrace();
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+        return resultWrapper;
     }
 
     public static class SMSMSG {

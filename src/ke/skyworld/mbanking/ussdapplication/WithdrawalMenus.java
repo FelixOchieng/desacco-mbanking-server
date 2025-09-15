@@ -39,9 +39,11 @@ public interface WithdrawalMenus {
 
                 case "ACCOUNT": {
                     String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT.name());
-                    if (strAccount.length() > 0){
-                        MemberRegisterResponse registerResponse = RegisterProcessor.getMemberRegister(RegisterConstants.MemberRegisterIdentifierType.ACCOUNT_NO, strAccount, RegisterConstants.MemberRegisterType.BLACKLIST);
-                        if(registerResponse.getResponseType().equals(APIConstants.RegisterViewResponse.VALID.getValue())) {
+                    HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                    String strAccountNumber = hmAccount.get("ac_no");
+                    if (!strAccountNumber.isEmpty()){
+                        MemberRegisterResponse registerResponse = RegisterProcessor.getMemberRegister(RegisterConstants.MemberRegisterIdentifierType.ACCOUNT_NO, strAccountNumber, RegisterConstants.MemberRegisterType.BLACKLIST);
+                        if(registerResponse == null || registerResponse.getResponseType().equals(APIConstants.RegisterViewResponse.VALID.getValue())) {
                             String strHeader = "M-Pesa Cash Withdrawal\nSorry the selected account is not allowed to perform this transaction.\n{Select a valid account}\n";
                             theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.WITHDRAWAL_END);
                         } else {
@@ -52,12 +54,6 @@ public interface WithdrawalMenus {
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "MY_NUMBER", "1: Withdraw to MY Number");
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "OTHER_NUMBER", "2: Withdraw to OTHER Number");
 
-                            /*if(Navision.getPort().checkIfServiceIsEnabledForUser(strAccount, "WD_TO_OTHER")) {
-                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "OTHER_NUMBER", "2: Withdraw to OTHER Number");
-                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "3", "DISABLE_CASH_WITHDRAWAL", "3: Disable Withdrawal to OTHER Number");
-                            } else {
-                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "ENABLE_CASH_WITHDRAWAL", "2: Enable Withdrawal to OTHER Number");
-                            }*/
                             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_TO_OPTION, "NO", theArrayListUSSDSelectOption);
                         }
                     }else{
@@ -68,7 +64,7 @@ public interface WithdrawalMenus {
                 }
                 case "TO_OPTION": {
                     String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO_OPTION.name());
-                    if (strUserInput.length() > 0){
+                    if (!strUserInput.isEmpty()){
                         if(strUserInput.equals("MY_NUMBER")){
                             String strResponse = "Withdraw to M-Pesa\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest,strResponse, AppConstants.USSDDataType.WITHDRAWAL_AMOUNT, USSDConstants.USSDInputType.STRING,"NO");

@@ -3595,4 +3595,31 @@ public class USSDAPI {
 
         return strAccountName;
     }
+
+    public TransactionWrapper<FlexicoreHashMap> validateAccount(USSDRequest theUSSDRequest, String strAccountNumber) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+            String strIdentifierType = userIdentifierDetails.get("identifier_type");
+            String strIdentifier = userIdentifierDetails.get("identifier");
+
+            return CBSAPI.validateAccountNumber(strMobileNumber, strIdentifierType, strIdentifier, strAccountNumber);
+
+        } catch (Exception e) {
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+
+        return resultWrapper;
+    }
 }

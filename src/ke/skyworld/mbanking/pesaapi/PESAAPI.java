@@ -833,7 +833,7 @@ public class PESAAPI {
     public static PesaParam getPesaParam(APIConstants.APPLICATION_TYPE theApplicationType, APIConstants.PESA_PARAM_TYPE thePesaParamType) {
         PesaParam rVal = new PesaParam();
         try {
-            String strPesaParamType = "OTHER_DETAILS/CUSTOM_PARAMETERS";
+            String strPesaParamType = "OTHER_DETAILS/CUSTOM_PARAMETERS/PAYMENT_CHANNELS";
 
             switch (thePesaParamType) {
                 case MPESA_B2C: {
