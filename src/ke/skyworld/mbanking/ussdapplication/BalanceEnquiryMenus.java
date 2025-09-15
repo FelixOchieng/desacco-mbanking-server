@@ -1,5 +1,7 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.pesa.PESAConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
@@ -150,6 +152,7 @@ public interface BalanceEnquiryMenus {
                     }
                     break;
                 }
+
                 case "ACCOUNT": {
                     String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT.name());
 
@@ -176,25 +179,63 @@ public interface BalanceEnquiryMenus {
 
                     break;
                 }
+
                 case "PIN": {
                     String strLoginPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
                     String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN.name());
                     if (strLoginPIN.equals(strPIN)) {
 
-                        String strResponse;
                         String strAccountNumber = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT.name());
+                        HashMap<String, String> hmAccount = Utils.toHashMap(strAccountNumber);
+                        strAccountNumber = hmAccount.get("ac_no");
+
+                        // if (theAccountType.equals(APIConstants.AccountType.LOAN)) {
+                        //     HashMap<String, String> hmLoan = Utils.toHashMap(strAccountNumber);
+                        //     strAccountNumber = hmLoan.get("ac_no");
+                        // }
+                        //
+                        // if(theAccountType.equals(APIConstants.AccountType.FOSA) || theAccountType.equals(APIConstants.AccountType.BOSA)){
+                        //     HashMap<String, String> hmAccount = Utils.toHashMap(strAccountNumber);
+                        //     strAccountNumber = hmAccount.get("ac_no");
+                        // }
+
+                        String strResponse = "Dear member, your Balance Enquiry request for Account " + strAccountNumber + " has been received successfully. Please wait shortly as it's being processed.\n";
+
+                        USSDAPI finalTheUSSDAPI = theUSSDAPI;
 
                         if (theAccountType.equals(APIConstants.AccountType.LOAN)) {
-                            HashMap<String, String> hmLoan = Utils.toHashMap(strAccountNumber);
-                            strAccountNumber = hmLoan.get("LOAN_ID");
+                            String finalStrAccountNumber = strAccountNumber;
+                            Thread worker = new Thread(() -> {
+                                TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiryWrapper = finalTheUSSDAPI.loanBalanceEnquiry(theUSSDRequest, finalStrAccountNumber);
+                                if (accountBalanceEnquiryWrapper.hasErrors()) {
+                                    FlexicoreHashMap accountBalanceEnquiryMap = accountBalanceEnquiryWrapper.getSingleRecord();
+                                    String strErrorMessage = accountBalanceEnquiryMap.getValue("cbs_api_return_val").toString()+"\n";
+                                    strErrorMessage += accountBalanceEnquiryMap.getStringValue("display_message");
+                                    System.err.println("BalanceEnquiryMenus.displayMenu_BalanceEnquiry() - Response " + strErrorMessage);
+                                }
+                            });
+                            worker.start();
                         }
 
-                        strResponse = theUSSDAPI.accountBalanceEnquiry(theUSSDRequest, strAccountNumber);
-                        System.out.println("accountBalanceEnquiry: " + strResponse);
+                        if(theAccountType.equals(APIConstants.AccountType.FOSA) || theAccountType.equals(APIConstants.AccountType.BOSA)){
+                            String finalStrAccountNumber = strAccountNumber;
+                            Thread worker = new Thread(() -> {
+                                TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiryWrapper = finalTheUSSDAPI.accountBalanceEnquiry(theUSSDRequest, finalStrAccountNumber);
+                                if (accountBalanceEnquiryWrapper.hasErrors()) {
+                                    FlexicoreHashMap accountBalanceEnquiryMap = accountBalanceEnquiryWrapper.getSingleRecord();
+                                    String strErrorMessage = accountBalanceEnquiryMap.getValue("cbs_api_return_val").toString()+"\n";
+                                    strErrorMessage += accountBalanceEnquiryMap.getStringValue("display_message");
+                                    System.err.println("BalanceEnquiryMenus.displayMenu_BalanceEnquiry() - Response " + strErrorMessage);
+                                }
+                            });
+                            worker.start();
+                        }
 
-                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO", theArrayListUSSDSelectOption);
+
                     } else {
                         String strResponse = strHeader + "\n{Please enter a correct PIN}\nEnter your PIN:";
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN, USSDConstants.USSDInputType.STRING, "NO");

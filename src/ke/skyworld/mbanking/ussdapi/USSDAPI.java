@@ -7,6 +7,7 @@ import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.co.skyworld.smp.query_manager.query.FilterPredicate;
 import ke.co.skyworld.smp.query_manager.util.SystemParameters;
 import ke.co.skyworld.smp.query_repository.Repository;
+import ke.co.skyworld.smp.utility_items.DateTime;
 import ke.co.skyworld.smp.utility_items.constants.StringRefs;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
@@ -924,21 +925,94 @@ public class USSDAPI {
         return account;
     }
 
-    public String accountBalanceEnquiry(USSDRequest theUSSDRequest, String theAccountNumber) {
+    public TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiry(USSDRequest theUSSDRequest, String strAccountNumber) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
         try {
             String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
-            String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_PIN.name());
-            strPIN = APIUtils.hashPIN(strPIN, strMobileNumber);
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
 
-            String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
+            HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+            String strIdentifierType = userIdentifierDetails.get("identifier_type");
+            String strIdentifier = userIdentifierDetails.get("identifier");
 
-            return CBSAPI.accountBalanceEnquiry(fnModifyUSSDSessionID(theUSSDRequest), strUSSDSessionID, strMobileNumber, strPIN, theAccountNumber);
+            TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiryWrapper =  CBSAPI.accountBalanceEnquirySINGLE(strMobileNumber, strIdentifierType, strIdentifier, "IMSI", strSIMID, strAccountNumber, "USSD");
+
+            FlexicoreHashMap accountBalanceMap = accountBalanceEnquiryWrapper.getSingleRecord();
+            CBSAPI.SMSMSG cbsMSG = accountBalanceMap.getValue("msg_object");
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            String strBalanceEnquiryMessage = cbsMSG.getMessage();
+
+            strBalanceEnquiryMessage += "\nREF: 11XMQ1U6";
+
+            sendSMS(String.valueOf(theUSSDRequest.getUSSDMobileNo()), strBalanceEnquiryMessage, cbsMSG.getMode(), cbsMSG.getPriority(), "BALANCE_ENQUIRY", theUSSDRequest);
+
+            return accountBalanceEnquiryWrapper;
         } catch (Exception e) {
             System.err.println(this.getClass().getSimpleName() + "." + new Object() {
             }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
             e.printStackTrace();
+
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage()));
+
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+            sendSMS(strMobileNumber, "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage(),
+                    MSGConstants.MSGMode.SAF, 210, "BALANCE_ENQUIRY", theUSSDRequest);
         }
-        return "There was an error in balance enquiry, kindly try again later";
+
+        return resultWrapper;
+    }
+
+    public TransactionWrapper<FlexicoreHashMap> loanBalanceEnquiry(USSDRequest theUSSDRequest, String strAccountNumber) {
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+            String strReferenceKey = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+
+            String strMemberName = getUserFullName(strMobileNumber).trim();
+
+            TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiryWrapper = CBSAPI.loanBalanceEnquiry(strMobileNumber,
+                    "MSISDN", strMobileNumber, "IMSI", strSIMID, strAccountNumber, "USSD");
+
+            FlexicoreHashMap accountBalanceMap = accountBalanceEnquiryWrapper.getSingleRecord();
+            CBSAPI.SMSMSG cbsMSG = accountBalanceMap.getValue("msg_object");
+
+            String strOriginatorId = UUID.randomUUID().toString();
+
+            String strBalanceEnquiryMessage = cbsMSG.getMessage();
+            // String strCharges = Utils.formatDouble(charges, "#,##0.00");
+            // strBalanceEnquiryMessage += " Charges: KES " + strCharges + ".\n";
+            // strBalanceEnquiryMessage += "Ref: " + strReferenceKey +" Date: " + DateTime.getCurrentDate("dd-MMM-yy' at 'hh:mm aaa") + "\n";
+            // strBalanceEnquiryMessage += "You can always view your full statement for free on USSD and APP.";
+
+            sendSMS(strMobileNumber, strBalanceEnquiryMessage, cbsMSG.getMode(), cbsMSG.getPriority(), "LOAN_BALANCE_ENQUIRY", theUSSDRequest);
+
+            return accountBalanceEnquiryWrapper;
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+            }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later." + getTrailerMessage()));
+
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+            sendSMS(strMobileNumber, "Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later." + getTrailerMessage(),
+                    MSGConstants.MSGMode.SAF, 210, "LOAN_BALANCE_ENQUIRY", theUSSDRequest);
+        }
+
+        return resultWrapper;
     }
 
     public APIConstants.TransactionReturnVal accountMiniStatement(USSDRequest theUSSDRequest, APIConstants.AccountType theAccountType) {
@@ -2353,7 +2427,6 @@ public class USSDAPI {
         return loans;
     }
 
-
     public LinkedList<String> getErroneousTransactions(USSDRequest theUSSDRequest) {
 
         LinkedList<String> loans = new LinkedList<>();
@@ -2389,7 +2462,6 @@ public class USSDAPI {
         }
         return loans;
     }
-
 
     public LinkedList<String> UpdateErroneousTransactions(String theId, String theAccount) {
 
@@ -2467,7 +2539,6 @@ public class USSDAPI {
         }
         return "";
     }
-
 
     public APIConstants.TransactionReturnVal loanRepayment(USSDRequest theUSSDRequest) {
         APIConstants.TransactionReturnVal rVal = APIConstants.TransactionReturnVal.ERROR;
@@ -2571,7 +2642,6 @@ public class USSDAPI {
 
         return rVal;
     }
-
 
     public void sendSMS(String theMobileNo, String theMSG, MSGConstants.MSGMode theMode, int thePriority, String theCategory, USSDRequest theUSSDRequest) {
         try {
@@ -3502,5 +3572,27 @@ public class USSDAPI {
         }
 
         return resultWrapper;
+    }
+
+    public String getUserFullName(String strUserPhoneNumber) {
+        String strAccountName = "";
+
+        TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                SystemTables.TBL_CUSTOMER_REGISTER_SIGNATORIES, "full_name",
+                new FilterPredicate("primary_mobile_number = :primary_mobile_number"),
+                new FlexicoreHashMap().addQueryArgument(":primary_mobile_number", strUserPhoneNumber));
+
+        if (signatoryDetailsWrapper.hasErrors()) {
+            return "";
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+        if (signatoryDetailsMap != null && !signatoryDetailsMap.isEmpty()) {
+            strAccountName = signatoryDetailsMap.getStringValue("full_name").trim();
+            return Utils.toTitleCase(strAccountName);
+        }
+
+        return strAccountName;
     }
 }

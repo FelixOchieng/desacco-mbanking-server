@@ -15,6 +15,8 @@ import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import ke.co.skyworld.smp.utility_items.memory.JvmManager;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
+import ke.skyworld.lib.mbanking.msg.MSGConstants;
+import ke.skyworld.lib.mbanking.utils.Utils;
 import ke.skyworld.mbanking.channelutils.EmailMessaging;
 import ke.skyworld.mbanking.nav.Navision;
 import ke.skyworld.mbanking.nav.utils.HttpSOAP;
@@ -34,6 +36,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.UUID;
 
 import static ke.co.skyworld.smp.query_manager.SystemTables.TBL_MOBILE_BANKING_REGISTER;
 import static ke.skyworld.mbanking.nav.utils.XmlObject.getNamespaceContext;
@@ -1918,7 +1921,7 @@ public class CBSAPI {
         TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
 
         try {
-            TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType);
+            TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType, false);
 
             if (customerAccountsListWrapper.hasErrors() && customerAccountsListWrapper.getStatusCode() != HttpsURLConnection.HTTP_NOT_FOUND) {
                 System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getCustomerAccounts() - " + customerAccountsListWrapper.getErrors() + "\n" + customerAccountsListWrapper.getMessages());
@@ -1969,7 +1972,7 @@ public class CBSAPI {
         TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
 
         try {
-            TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType);
+            TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType, false);
 
             if (customerAccountsListWrapper.hasErrors() && customerAccountsListWrapper.getStatusCode() != HttpsURLConnection.HTTP_NOT_FOUND) {
                 System.err.println(strRequestingMobileNumber + " => DeSaccoCBS.getCustomerAccounts() - " + customerAccountsListWrapper.getErrors() + "\n" + customerAccountsListWrapper.getMessages());
@@ -2147,6 +2150,501 @@ public class CBSAPI {
         }
 
         return response;
+    }
+
+
+    public static TransactionWrapper<FlexicoreHashMap> loanBalanceEnquiry(String strRequestingMobileNumber,
+                                                                          String theIdentifierType,
+                                                                          String theIdentifier,
+                                                                          String theDeviceIdentifierType,
+                                                                          String theDeviceIdentifier,
+                                                                          String theAccountNumber,
+                                                                          String theSourceApplication) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> checkUserResultMapWrapper = checkUser(UUID.randomUUID().toString(), theIdentifierType, theIdentifier, theDeviceIdentifierType, theDeviceIdentifier);
+            FlexicoreHashMap checkUserResultMap = checkUserResultMapWrapper.getSingleRecord();
+
+            if (checkUserResultMapWrapper.hasErrors()) {
+                System.err.println("=> Check User Failed for checkUser(..., " + theIdentifierType + ", " + theIdentifier + ", " + theDeviceIdentifierType + ", " + theDeviceIdentifier + ")");
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                checkUserResultMap.putValue("msg_object", cbsMSG);
+                checkUserResultMap.putValue("cbs_api_error_message", checkUserResultMapWrapper.getErrors() + " - " + checkUserResultMapWrapper.getMessages());
+
+                return checkUserResultMapWrapper;
+            }
+
+            TransactionWrapper<FlexicoreHashMap> accountBalanceWrapper = DeSaccoCBS.getLoanAccountBalance(theIdentifierType, theIdentifier, theAccountNumber, theSourceApplication);
+
+            if (accountBalanceWrapper.hasErrors()) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", accountBalanceWrapper.getErrors() + " - " + accountBalanceWrapper.getMessages())
+                        .putValue("msg_object", cbsMSG)
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap accountBalanceResultMap = accountBalanceWrapper.getSingleRecord();
+            String requestStatus = accountBalanceResultMap.getStringValue("request_status");
+
+            FlexicoreHashMap accountBalResponseMap = accountBalanceResultMap.getFlexicoreHashMap("response_payload");
+
+            if (requestStatus.equalsIgnoreCase("INSUFFICIENT_BAL")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
+                accountBalanceResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Dear member, your account balance is insufficient to process your Loan Balance Enquiry request");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.NO)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, your account balance is insufficient to process your Loan Balance Enquiry request." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", requestStatus + ": " + accountBalResponseMap.getStringValue("error_message") + " - " + accountBalResponseMap.getStringValue("devMessage"))
+                        .putValue("msg_object", cbsMSG));
+
+                return resultWrapper;
+            }
+
+            if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getLoanAccountBalance(" + theAccountNumber + ")");
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", requestStatus + ": " + accountBalResponseMap.getStringValue("error_message") + " - " + accountBalResponseMap.getStringValue("devMessage"))
+                        .putValue("msg_object", cbsMSG)
+                );
+
+                return resultWrapper;
+            }
+
+            String strAccountName = accountBalResponseMap.getStringValueOrIfNull("loan_type_name", "").trim();
+            String strAccountSerialNumber = accountBalResponseMap.getStringValueOrIfNull("loan_serial_number", "").trim();
+            String strAccountBalance = accountBalResponseMap.getStringValueOrIfNull("loan_balance", "0").trim();
+            String strAccountInterestAmount = accountBalResponseMap.getStringValueOrIfNull("interest_amount", "0").trim();
+
+            double dblLoanBalance = Double.parseDouble(strAccountBalance);
+            double dblLoanInterestBalance = Double.parseDouble(strAccountInterestAmount);
+            double dblTotalLoanBalance = dblLoanBalance + dblLoanInterestBalance;
+
+            String strTotalLoanBalance = Utils.formatDouble(dblLoanBalance, "#,##0.00");
+
+            /**
+             * Dear [MEMBER_NAME],
+             * Your balance for [ACCOUNT_LABEL], A/C No.: [ACCOUNT_NO] is KES: [AMOUNT]. Charges: KES [AMOUNT].
+             * Ref: [REFERENCE] Date: [DATE]
+             *
+             * You can always view your full statement for free on USSD and APP.
+             */
+
+            HashMap<String, String> memberDetails = CBSAPI.getMemberDetails(strRequestingMobileNumber);
+            String strFullName = memberDetails.get("full_name");
+            String firstName = strFullName.split(" ")[1];
+
+            String strMSG = "Dear %s, Your Balance for %s A/C No.: %s is KES %s";
+            strMSG = String.format(strMSG, firstName, strAccountName, strAccountSerialNumber,  strTotalLoanBalance);
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage(strMSG);
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            accountBalanceResultMap
+                    .putValue("msg_object", cbsMSG)
+                    .putValue("loan_balance", accountBalResponseMap.getStringValueOrIfNull("loan_balance", "0").trim())
+                    .putValue("interest_amount", accountBalResponseMap.getStringValueOrIfNull("interest_amount", "0").trim())
+                    .putValue("loan_name", strAccountName)
+                    .putValue("loan_serial_number", strAccountSerialNumber);
+
+            return accountBalanceWrapper;
+        } catch (Exception e) {
+            System.err.println(strRequestingMobileNumber + " => CBSAPI.loanBalanceEnquiry(): " + e.getMessage());
+            e.printStackTrace();
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage("Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later.");
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Loan Balance Enquiry request. Please try again later." + getTrailerMessage())
+                    .putValue("msg_object", cbsMSG)
+                    .putValue("cbs_api_error_message", e.getMessage())
+            );
+        }
+        return resultWrapper;
+    }
+
+    public static String accountBalanceEnquiry_V2(String strEntryCode, String strUSSDSessionID, String strMobileNumber, String strPIN, String strAccountType) {
+        String response = CBS_ERROR;
+
+        String SOAPFunction = "AccountBalanceEnquiry";
+        String strRequestXml = """
+                <x:Envelope
+                    xmlns:x="http://schemas.xmlsoap.org/soap/envelope/"
+                    xmlns:sky="%s">
+                    <x:Header/>
+                    <x:Body>
+                        <sky:AccountBalanceEnquiry>
+                            <sky:entryCode></sky:entryCode>
+                            <sky:transactionID></sky:transactionID>
+                            <sky:phoneNo></sky:phoneNo>
+                            <sky:pIN></sky:pIN>
+                            <sky:accType></sky:accType>
+                        </sky:AccountBalanceEnquiry>
+                    </x:Body>
+                </x:Envelope>
+                """.formatted(Navision.params.getCoreBankingSKYPrefix());
+
+        try {
+            XmlObject requestXml = new XmlObject(strRequestXml, true, getNamespaceContext(XmlObject.MOBILE_SERVICE));
+            requestXml.update("/x:Envelope/x:Body/sky:" + SOAPFunction + "/sky:entryCode", strEntryCode);
+            requestXml.update("/x:Envelope/x:Body/sky:" + SOAPFunction + "/sky:transactionID", strUSSDSessionID);
+            requestXml.update("/x:Envelope/x:Body/sky:" + SOAPFunction + "/sky:phoneNo", strMobileNumber);
+            requestXml.update("/x:Envelope/x:Body/sky:" + SOAPFunction + "/sky:pIN", strPIN);
+            requestXml.update("/x:Envelope/x:Body/sky:" + SOAPFunction + "/sky:accType", strAccountType);
+
+            String strResponseXml = HttpSOAP.sendRequest(SOAPFunction, requestXml.format(true));
+            if (strResponseXml == null) throw new Exception("NULL response");
+
+            XmlObject responseXml = new XmlObject(strResponseXml);
+            response = responseXml.read("/Envelope/Body/" + SOAPFunction + "_Result/return_value");
+
+            response = replaceChars(response);
+
+            if (Navision.params.getCoreBankingLoggingLevel() == LoggingLevel.DEBUG) {
+                System.out.println("Processed Response     : " + response);
+            }
+
+        } catch (Exception e) {
+            System.err.println("CBSAPI." + SOAPFunction + "() Error making CBS API Request: " + e.getMessage());
+        }
+
+        return response;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> accountBalanceEnquirySINGLE(String strRequestingMobileNumber,
+                                                                                   String theIdentifierType,
+                                                                                   String theIdentifier,
+                                                                                   String theDeviceIdentifierType,
+                                                                                   String theDeviceIdentifier,
+                                                                                   String theAccountNumber,
+                                                                                   String theSourceApplication) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> checkUserResultMapWrapper = checkUser(UUID.randomUUID().toString(), theIdentifierType, theIdentifier, theDeviceIdentifierType, theDeviceIdentifier);
+            FlexicoreHashMap checkUserResultMap = checkUserResultMapWrapper.getSingleRecord();
+
+            if (checkUserResultMapWrapper.hasErrors()) {
+                System.err.println("=> Check User Failed for checkUser(..., " + theIdentifierType + ", " + theIdentifier + ", " + theDeviceIdentifierType + ", " + theDeviceIdentifier + ")");
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                checkUserResultMap.putValue("msg_object", cbsMSG);
+                checkUserResultMap.putValue("cbs_api_error_message", checkUserResultMapWrapper.getErrors() + " - " + checkUserResultMapWrapper.getMessages());
+
+                return checkUserResultMapWrapper;
+            }
+
+            TransactionWrapper<FlexicoreHashMap> accountBalanceWrapper = DeSaccoCBS.getDepositAccountBalance(theIdentifierType, theIdentifier, theAccountNumber, theSourceApplication);
+
+            if (accountBalanceWrapper.hasErrors()) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance() - " + accountBalanceWrapper.getErrors() + "\n" + accountBalanceWrapper.getMessages());
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", accountBalanceWrapper.getErrors() + " - " + accountBalanceWrapper.getMessages())
+                        .putValue("msg_object", cbsMSG)
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap accountBalanceResultMap = accountBalanceWrapper.getSingleRecord();
+            String requestStatus = accountBalanceResultMap.getStringValue("request_status");
+
+            FlexicoreHashMap accountBalResponseMap = accountBalanceResultMap.getFlexicoreHashMap("response_payload");
+
+            if (requestStatus.equalsIgnoreCase("INSUFFICIENT_BAL")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
+                accountBalanceResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Dear member, your account balance is insufficient to process your Balance Enquiry request");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.NO)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, your account balance is insufficient to process your Balance Enquiry request." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", requestStatus + ": " + accountBalResponseMap.getStringValue("error_message") + " - " + accountBalResponseMap.getStringValue("devMessage"))
+                        .putValue("msg_object", cbsMSG));
+
+                return resultWrapper;
+            }
+
+            if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getAccountBalance(" + theAccountNumber + ")");
+                accountBalanceResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage())
+                        .putValue("cbs_api_error_message", requestStatus + ": " + accountBalResponseMap.getStringValue("error_message") + " - " + accountBalResponseMap.getStringValue("devMessage"))
+                        .putValue("msg_object", cbsMSG)
+                );
+
+                return resultWrapper;
+            }
+
+            String strAccountName = accountBalResponseMap.getStringValueOrIfNull("account_label", "").trim();
+            String strAccountType = accountBalResponseMap.getStringValueOrIfNull("account_type", "").trim();
+            String strAccountNumber = accountBalResponseMap.getStringValueOrIfNull("account_number", "").trim();
+            String strAccountWithdrawableBalance = accountBalResponseMap.getStringValueOrIfNull("available_balance", "0").trim();
+            String strAccountBookBalance = accountBalResponseMap.getStringValueOrIfNull("book_balance", "0").trim();
+            strAccountWithdrawableBalance = Utils.formatDouble(strAccountWithdrawableBalance, "#,##0.00");
+            strAccountBookBalance = Utils.formatDouble(strAccountBookBalance, "#,##0.00");
+
+            /**
+             * Dear MIDURI,
+             * Your Current Account Balance as at 16-02-2022 19:30 is:
+             * Available Bal: 0.
+             * Book Balance: 0.
+             * REF: 11XMQ1U6
+             */
+
+            // String strAccountBalance = strAccountType.equalsIgnoreCase("FOSA") ? strAccountWithdrawableBalance : strAccountBookBalance;
+
+            HashMap<String, String> memberDetails = CBSAPI.getMemberDetails(strRequestingMobileNumber);
+            String strFullName = memberDetails.get("full_name");
+            String firstName = strFullName.split(" ")[1];
+            String strTimestamp = DateTime.getCurrentDate("dd-MM-yyyy HH:mm");
+            String strMSG = "Dear " + firstName + ",\nYour " + strAccountName + " Balance as at "  + strTimestamp + " is:\nAvailable Bal: " + strAccountWithdrawableBalance + ".\nBook Balance: " + strAccountBookBalance +".";
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage(strMSG);
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            accountBalResponseMap.putValue("msg_object", cbsMSG);
+
+            accountBalanceWrapper.setData(accountBalResponseMap);
+
+            return accountBalanceWrapper;
+        } catch (Exception e) {
+            System.err.println(strRequestingMobileNumber + " => CBSAPI.accountBalanceEnquiry(): " + e.getMessage());
+            e.printStackTrace();
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage())
+                    .putValue("msg_object", cbsMSG)
+                    .putValue("cbs_api_error_message", e.getMessage())
+            );
+        }
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> accountBalanceEnquiry(String strRequestingMobileNumber,
+                                                                             String theIdentifierType,
+                                                                             String theIdentifier,
+                                                                             String theDeviceIdentifierType,
+                                                                             String theDeviceIdentifier,
+                                                                             String theAccountType) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> checkUserResultMapWrapper = checkUser(UUID.randomUUID().toString(), theIdentifierType, theIdentifier, theDeviceIdentifierType, theDeviceIdentifier);
+            FlexicoreHashMap checkUserResultMap = checkUserResultMapWrapper.getSingleRecord();
+
+            if (checkUserResultMapWrapper.hasErrors()) {
+                System.err.println("=> Check User Failed for checkUser(..., " + theIdentifierType + ", " + theIdentifier + ", " + theDeviceIdentifierType + ", " + theDeviceIdentifier + ")");
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                checkUserResultMap.putValue("msg_object", cbsMSG);
+                checkUserResultMap.putValue("cbs_api_error_message", checkUserResultMapWrapper.getErrors() + " - " + checkUserResultMapWrapper.getMessages());
+
+                return checkUserResultMapWrapper;
+            }
+
+            TransactionWrapper<FlexicoreArrayList> customerAccountsListWrapper = DeSaccoCBS.getMemberDepositAccounts(theIdentifierType, theIdentifier, theAccountType, false);
+
+            if (customerAccountsListWrapper.hasErrors() && customerAccountsListWrapper.getStatusCode() != HttpsURLConnection.HTTP_NOT_FOUND) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.getCustomerAccountsBALANCE_EQUIRY() - " + customerAccountsListWrapper.getErrors() + "\n" + customerAccountsListWrapper.getMessages());
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.addError(customerAccountsListWrapper.getErrors());
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage()));
+
+                return resultWrapper;
+            }
+
+            if (customerAccountsListWrapper.getStatusCode() == HttpsURLConnection.HTTP_NOT_FOUND) {
+                resultWrapper.setHasErrors(true);
+                resultWrapper.addError("Sorry, the member accounts could not be found.");
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, the member accounts could not be found." + getTrailerMessage()));
+
+                return resultWrapper;
+            }
+
+            FlexicoreArrayList customersList = customerAccountsListWrapper.getData();
+
+            String strAccountDisplay = (theAccountType.equalsIgnoreCase("ALL") ? "" : theAccountType);
+            if (strAccountDisplay.equalsIgnoreCase("BOSA")) {
+                strAccountDisplay = "Shares And Deposits Accounts";
+            }
+
+            StringBuilder accountsMSGBuilder = new StringBuilder("Dear member, your " + strAccountDisplay + " Account Balances are:\n");
+            for (FlexicoreHashMap customerAccount : customersList) {
+                String strAccountName = customerAccount.getStringValueOrIfNull("account_type_name", "").trim();
+                String strAccountNumber = customerAccount.getStringValueOrIfNull("account_number", "").trim();
+                String strAccountWithdrawableBalance = customerAccount.getStringValueOrIfNull("account_balance", "0").trim();
+
+                double dbAccountBalance = Utils.stringToDouble(strAccountWithdrawableBalance.replace("-", ""));
+
+                if (dbAccountBalance <= 0) {
+                    continue;
+                }
+
+                strAccountWithdrawableBalance = Utils.formatDouble(strAccountWithdrawableBalance, "#,##0.00");
+
+                accountsMSGBuilder.append("Name: " + strAccountName + " - " + strAccountNumber + "\n");
+                accountsMSGBuilder.append("Bal : KES " + strAccountWithdrawableBalance + "\n\n");
+            }
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage(accountsMSGBuilder.toString());
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.NO)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.SUCCESS)
+                    .putValue("payload", customersList)
+                    .putValue("msg_object", cbsMSG));
+
+            return resultWrapper;
+        } catch (Exception e) {
+            System.err.println(strRequestingMobileNumber + " => CBSAPI.accountBalanceEnquiry(): " + e.getMessage());
+            e.printStackTrace();
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage("Sorry, an error occurred while processing your Balance Enquiry request. Please try again later.");
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Balance Enquiry request. Please try again later." + getTrailerMessage())
+                    .putValue("msg_object", cbsMSG)
+                    .putValue("cbs_api_error_message", e.getMessage())
+            );
+        }
+        return resultWrapper;
     }
 
     public static String loanMiniStatement(String strEntryCode, String strTransactionID, int intMaxNumberRows,
@@ -6876,6 +7374,165 @@ public class CBSAPI {
             xml = xml.replaceAll("&gt;", ">");
         }
         return xml;
+    }
+
+    public static HashMap<String, String> getMemberDetails(String strIdentifierType, String strIdentifier) {
+        HashMap<String, String> userIdentifierDetails = new HashMap<>();
+
+        TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                SystemTables.TBL_CUSTOMER_REGISTER, "identifier_type, identifier, full_name",
+                new FilterPredicate("identifier_type = :identifier_type AND identifier = :identifier"),
+                new FlexicoreHashMap()
+                        .addQueryArgument(":identifier_type", strIdentifierType)
+                        .addQueryArgument(":identifier", strIdentifier));
+
+        if (signatoryDetailsWrapper.hasErrors()) {
+            return userIdentifierDetails;
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+        if (signatoryDetailsMap != null && !signatoryDetailsMap.isEmpty()) {
+            userIdentifierDetails.put("identifier_type", signatoryDetailsMap.getStringValue("identifier_type"));
+            userIdentifierDetails.put("identifier", signatoryDetailsMap.getStringValue("identifier"));
+            userIdentifierDetails.put("full_name", signatoryDetailsMap.getStringValue("full_name"));
+            return userIdentifierDetails;
+        }
+
+        return userIdentifierDetails;
+    }
+
+    public static HashMap<String, String> getMemberDetails(String strUserPhoneNumber) {
+        HashMap<String, String> userIdentifierDetails = new HashMap<>();
+
+        TransactionWrapper<FlexicoreHashMap> signatoryDetailsWrapper = Repository.selectWhere(StringRefs.SENTINEL,
+                SystemTables.TBL_CUSTOMER_REGISTER_SIGNATORIES, "identifier_type, identifier, full_name",
+                new FilterPredicate("primary_mobile_number = :primary_mobile_number"),
+                new FlexicoreHashMap().addQueryArgument(":primary_mobile_number", strUserPhoneNumber));
+
+        if (signatoryDetailsWrapper.hasErrors()) {
+            return userIdentifierDetails;
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = signatoryDetailsWrapper.getSingleRecord();
+
+        if (signatoryDetailsMap != null && !signatoryDetailsMap.isEmpty()) {
+            userIdentifierDetails.put("identifier_type", signatoryDetailsMap.getStringValue("identifier_type"));
+            userIdentifierDetails.put("identifier", signatoryDetailsMap.getStringValue("identifier"));
+            userIdentifierDetails.put("full_name", signatoryDetailsMap.getStringValue("full_name"));
+            return userIdentifierDetails;
+        }
+
+        return userIdentifierDetails;
+    }
+
+    public static class SMSMSG {
+        private String strMessage;
+        private int intPriority;
+        private String strCharge;
+        private String strCategory;
+        private MSGConstants.Sensitivity sensitivity;
+        private String strRequestApplication;
+        private String strSourceApplication;
+        private String strSessionID;
+        private String strCorrelationID;
+        private MSGConstants.MSGMode theMode;
+
+        public String getMessage() {
+            return strMessage;
+        }
+
+        public void setMessage(String theMessage) {
+            this.strMessage = theMessage;
+        }
+
+        public int getPriority() {
+            return intPriority;
+        }
+
+        public void setPriority(int thePriority) {
+            this.intPriority = thePriority;
+        }
+
+        public String getCharge() {
+            return strCharge;
+        }
+
+        public void setCharge(String theCharge) {
+            this.strCharge = theCharge;
+        }
+
+        public String getCategory() {
+            return strCategory;
+        }
+
+        public void setCategory(String theCategory) {
+            this.strCategory = theCategory;
+        }
+
+        public String getRequestApplication() {
+            return strRequestApplication;
+        }
+
+        public void setRequestApplication(String theRequestApplication) {
+            this.strRequestApplication = theRequestApplication;
+        }
+
+        public String getSourceApplication() {
+            return strSourceApplication;
+        }
+
+        public void setSourceApplication(String theSourceApplication) {
+            this.strSourceApplication = theSourceApplication;
+        }
+
+        public String getSessionID() {
+            return strSessionID;
+        }
+
+        public void setSessionID(String theSessionID) {
+            this.strSessionID = theSessionID;
+        }
+
+        public String getCorrelationID() {
+            return strCorrelationID;
+        }
+
+        public void setCorrelationID(String theCorrelationID) {
+            this.strCorrelationID = theCorrelationID;
+        }
+
+        public MSGConstants.MSGMode getMode() {
+            return theMode;
+        }
+
+        public void setMode(MSGConstants.MSGMode theMode) {
+            this.theMode = theMode;
+        }
+
+        public MSGConstants.Sensitivity getSensitivity() {
+            return sensitivity;
+        }
+
+        public void setSensitivity(MSGConstants.Sensitivity theSensitivity) {
+            this.sensitivity = theSensitivity;
+        }
+
+        @Override
+        public String toString() {
+            return "SMSMSG{" +
+                   "strMessage='" + strMessage + '\'' +
+                   ", intPriority=" + intPriority +
+                   ", strCharge='" + strCharge + '\'' +
+                   ", strCategory='" + strCategory + '\'' +
+                   ", sensitivity=" + sensitivity +
+                   ", strRequestApplication='" + strRequestApplication + '\'' +
+                   ", strSourceApplication='" + strSourceApplication + '\'' +
+                   ", strSessionID='" + strSessionID + '\'' +
+                   ", strCorrelationID='" + strCorrelationID + '\'' +
+                   ", theMode=" + theMode +
+                   '}';
+        }
     }
 
 }

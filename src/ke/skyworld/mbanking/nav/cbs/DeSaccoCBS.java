@@ -68,8 +68,6 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
-
         String strAction = "GET_MEMBER_DETAILS";
 
         FlexicoreHashMap requestBody = new FlexicoreHashMap()
@@ -122,11 +120,11 @@ public class DeSaccoCBS {
         return resultWrapper;
     }
 
-    public static TransactionWrapper<FlexicoreArrayList> getMemberDepositAccounts(String theIdentifierType, String theIdentifier, String theAccountType) {
+    public static TransactionWrapper<FlexicoreArrayList> getMemberDepositAccounts(String theIdentifierType, String theIdentifier, String theAccountType, boolean applyCharges) {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_DEPOSIT_ACCOUNTS";
 
@@ -137,6 +135,7 @@ public class DeSaccoCBS {
                         .putValue("identifier_type", theIdentifierType)
                         .putValue("identifier", theIdentifier)
                         .putValue("account_type", theAccountType)
+                        .putValue("apply_charges", applyCharges)
                         .putValue("transaction_date_time", DateTime.getCurrentDateTime("yyyy-MM-dd HH:mm:ss"))
                 );
 
@@ -174,7 +173,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "VALIDATE_ACCOUNT";
 
@@ -195,7 +194,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "BALANCE_ENQUIRY";
 
@@ -218,7 +217,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "ACCOUNT_MINI_STATEMENT";
 
@@ -244,7 +243,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "ACCOUNT_FULL_STATEMENT";
 
@@ -285,7 +284,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "WITHDRAWAL";
 
@@ -364,7 +363,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "WITHDRAWAL_RESULT";
 
@@ -392,7 +391,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_DIVIDEND_PAYSLIP_YEARS";
 
@@ -438,7 +437,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_DIVIDEND_PAYSLIP";
 
@@ -505,7 +504,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "DEPOSIT";
 
@@ -588,7 +587,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "IFT_ACCOUNT_TO_ACCOUNT";
 
@@ -626,7 +625,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "IFT_LOAN_REPAYMENT";
 
@@ -656,7 +655,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "LOAN_MINI_STATEMENT";
 
@@ -683,7 +682,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "LOAN_FULL_STATEMENT";
 
@@ -706,7 +705,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "LOAN_REPAYMENT_SCHEDULE";
 
@@ -758,7 +757,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_CHARGES";
 
@@ -796,7 +795,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "CHECK_LOAN_LIMIT";
 
@@ -819,7 +818,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_LOANS_IN_SERVICE";
 
@@ -877,7 +876,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "LOAN_APPLICATION";
 
@@ -917,7 +916,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "CREATE_LOAN_APPLICATION_REQUEST";
 
@@ -948,7 +947,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "LOAN_BALANCE_ENQUIRY";
 
@@ -971,7 +970,7 @@ public class DeSaccoCBS {
         String strRequestId = UUID.randomUUID().toString();
 
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_LOAN_TYPES";
 
@@ -1019,7 +1018,7 @@ public class DeSaccoCBS {
                                                                                              FlexicoreHashMap instructionsMap) {
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "DIVIDENDS_CAPITALIZATION";
 
@@ -1041,7 +1040,7 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        theIdentifier = getTheIdentifier(theIdentifierType, theIdentifier);
+        
 
         String strAction = "GET_DIVIDEND_CAPITALIZATION_INSTRUCTIONS";
 
