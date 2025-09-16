@@ -1,5 +1,7 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.pesa.PESALocalParameters;
 import ke.skyworld.lib.mbanking.register.MemberRegisterResponse;
 import ke.skyworld.lib.mbanking.register.RegisterConstants;
@@ -159,6 +161,8 @@ public interface WithdrawalMenus {
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_AMOUNT.name());
                         strAmount = Utils.formatDouble(strAmount, "#,###");
                         String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT.name());
+                        HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                        String strAccountNumber = hmAccount.get("ac_no");
 
                         String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
                         String strName = "";
@@ -167,14 +171,14 @@ public interface WithdrawalMenus {
 
                         if(!strWithdrawalToOption.equals("MY_NUMBER")){
                             String strMobileNumberHashMap = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO.name());
-                            HashMap<String, String> hmAccount = Utils.toHashMap(strMobileNumberHashMap);
-                            strMobileNo = hmAccount.get("ACCOUNT_IDENTIFIER");
-                            strName = " ("+hmAccount.get("ACCOUNT_NAME")+")";
+                            HashMap<String, String> hmOtherNumber = Utils.toHashMap(strMobileNumberHashMap);
+                            strMobileNo = hmOtherNumber.get("ACCOUNT_IDENTIFIER");
+                            strName = " ("+hmOtherNumber.get("ACCOUNT_NAME")+")";
                         }
 
                         strMobileNo = APIUtils.sanitizePhoneNumber(strMobileNo);
 
-                        String strResponse =  "Confirm M-Pesa Withdrawal\nTo: "+strMobileNo + strName+"\nAmount: KES "+strAmount+"\nAccount: "+strAccount+"\n";
+                        String strResponse =  "Confirm M-Pesa Withdrawal\nTo: "+strMobileNo + strName+"\nAmount: KES "+strAmount+"\nAccount: "+strAccountNumber+"\n";
 
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -191,44 +195,58 @@ public interface WithdrawalMenus {
 
                     switch (strConfirmation){
                         case "YES":{
-                            String strResponse = "Dear member, your Cash Withdrawal request has been received successfully. Please wait shortly as it's being processed.";
-
-                            APIConstants.TransactionReturnVal transactionReturnVal = null;
-
-                            transactionReturnVal = theUSSDAPI.mobileMoneyWithdrawal(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
-
-                            assert transactionReturnVal != null;
-                            if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
-                                strResponse = "Dear member, your M-Pesa Cash Withdrawal request has been received successfully. Please wait shortly as it's being processed.";
-                            }else {
-                                switch (transactionReturnVal) {
-                                    case INCORRECT_PIN: {
-                                        strResponse = "Sorry the PIN provided is incorrect. Your M-Pesa Cash Withdrawal request CANNOT be completed.\n";
-                                        break;
-                                    }
-                                    case BLOCKED: {
-                                        strResponse = "Dear member, your account has been blocked. Your M-Pesa Cash Withdrawal request CANNOT be completed.\n";
-                                        break;
-                                    }
-                                    case INSUFFICIENT_BAL: {
-                                        strResponse = "Dear member, you have insufficient balance to complete this request. Please check your account balance and try again.\n";
-                                        break;
-                                    }
-                                    case INVALID_MOBILE_NUMBER: {
-                                        strResponse = "Dear member, you have entered an invalid phone number. Please check the phone number and try again.\n";
-                                        break;
-                                    }
-
-                                    default: {
-                                        strResponse = "Sorry, your M-Pesa Cash Withdrawal request CANNOT be completed at the moment. Please try again later.\n";
-                                        break;
-                                    }
-                                }
+                            // String strResponse = "Dear member, your Cash Withdrawal request has been received successfully. Please wait shortly as it's being processed.";
+                            //
+                            // APIConstants.TransactionReturnVal transactionReturnVal = null;
+                            //
+                            // transactionReturnVal = theUSSDAPI.mobileMoneyWithdrawal(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
+                            //
+                            // assert transactionReturnVal != null;
+                            // if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
+                            //     strResponse = "Dear member, your M-Pesa Cash Withdrawal request has been received successfully. Please wait shortly as it's being processed.";
+                            // }else {
+                            //     switch (transactionReturnVal) {
+                            //         case INCORRECT_PIN: {
+                            //             strResponse = "Sorry the PIN provided is incorrect. Your M-Pesa Cash Withdrawal request CANNOT be completed.\n";
+                            //             break;
+                            //         }
+                            //         case BLOCKED: {
+                            //             strResponse = "Dear member, your account has been blocked. Your M-Pesa Cash Withdrawal request CANNOT be completed.\n";
+                            //             break;
+                            //         }
+                            //         case INSUFFICIENT_BAL: {
+                            //             strResponse = "Dear member, you have insufficient balance to complete this request. Please check your account balance and try again.\n";
+                            //             break;
+                            //         }
+                            //         case INVALID_MOBILE_NUMBER: {
+                            //             strResponse = "Dear member, you have entered an invalid phone number. Please check the phone number and try again.\n";
+                            //             break;
+                            //         }
+                            //
+                            //         default: {
+                            //             strResponse = "Sorry, your M-Pesa Cash Withdrawal request CANNOT be completed at the moment. Please try again later.\n";
+                            //             break;
+                            //         }
+                            //     }
+                            // }
+                            //
+                            // ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                            // USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                            // theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_END, "NO",theArrayListUSSDSelectOption);
+                            // break;
+                            TransactionWrapper<FlexicoreHashMap> moneyOutWrapper = theUSSDAPI.mobileMoneyWithdrawal(theUSSDRequest);
+                            FlexicoreHashMap moneyOutMap = moneyOutWrapper.getSingleRecord();
+                            if (moneyOutWrapper.hasErrors()) {
+                                String strErrorMessage = moneyOutMap.getValue("cbs_api_return_val").toString() + "\n";
+                                strErrorMessage += moneyOutMap.getStringValue("display_message");
+                                System.err.println("WithdrawalMenus.displayMenu_Withdrawal() - Response " + strErrorMessage);
                             }
 
-                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                            String strResponse = moneyOutMap.getStringValue("display_message");
+
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_END, "NO",theArrayListUSSDSelectOption);
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_END, "NO", theArrayListUSSDSelectOption);
                             break;
                         }
                         case "NO":{
@@ -340,6 +358,7 @@ public interface WithdrawalMenus {
                                     }
                                 }
                             }catch (Exception e){
+                                e.printStackTrace();
                                 System.err.println("theAppMenus.displayMenu_CashWithdrawal_Maintain_Accounts() ERROR : " + e.getMessage());
                             }
 

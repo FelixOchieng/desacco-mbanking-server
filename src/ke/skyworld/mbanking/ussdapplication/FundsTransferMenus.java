@@ -870,7 +870,7 @@ public interface FundsTransferMenus {
         USSDResponse theUSSDResponse = null;
         final USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
-        PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+        PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
         String strSender = pesaParam.getSenderIdentifier();
 
         try {

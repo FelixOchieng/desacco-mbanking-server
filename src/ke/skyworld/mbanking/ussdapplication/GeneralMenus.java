@@ -184,8 +184,8 @@ public interface GeneralMenus {
                     hmOption.put("ac_no", strAccountNumber);
                     hmOption.put("ac_name", strAccountName);
                     hmOption.put("ac_label", strAccountName);
-                    hmOption.put("bal", Utils.formatDouble(dblAccountBalance, "##0.00"));
-                    hmOption.put("intr", Utils.formatDouble(dblInterestBalance, "##0.00"));
+                    hmOption.put("bal", Utils.formatDouble(dblAccountBalance, "#,##0.00"));
+                    hmOption.put("intr", Utils.formatDouble(dblInterestBalance, "#,##0.00"));
 
                     String optionName = Converter.toJson(hmOption);
 
@@ -781,6 +781,8 @@ public interface GeneralMenus {
 
                     if (strIntegrityHashViolated.equalsIgnoreCase(USSDConstants.Condition.NO.getValue())) {
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(i), strOptionValueAccount, strOptionDisplayText);
+                    }else{
+                        System.out.println("Integrity has been violated");
                     }
                 }
 

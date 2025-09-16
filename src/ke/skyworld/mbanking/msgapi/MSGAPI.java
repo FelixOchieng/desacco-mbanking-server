@@ -1,5 +1,6 @@
 package ke.skyworld.mbanking.msgapi;
 
+import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingDB;
 import ke.skyworld.mbanking.mbankingapi.MBankingAPI;
 import ke.skyworld.lib.mbanking.msg.*;
@@ -129,8 +130,8 @@ public class MSGAPI {
             String theOriginatorID = UUID.randomUUID().toString().toUpperCase();
             String theSenderType = MSGConstants.SenderType.SENDER_ID.getValue();
             String theMessageFormat = "TEXT";
-            long theProductID = Long.parseLong(MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID"));
-            String theSender = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
+            long theProductID = Long.parseLong(MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID"));
+            String theSender = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
             String theCommand = "BulkSMS";
             String theCharge = "YES";
 

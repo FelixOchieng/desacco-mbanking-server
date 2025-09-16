@@ -29,6 +29,7 @@ import ke.skyworld.mbanking.mbankingapi.MBankingAPI;
 import ke.skyworld.mbanking.mbankingapi.PDF;
 import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
+import ke.skyworld.mbanking.pesaapi.PESAAPIConstants;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
 import ke.skyworld.mbanking.ussdapplication.AppConstants;
 import org.apache.commons.codec.binary.Base64;
@@ -1076,74 +1077,299 @@ public class USSDAPI {
         return rVal;
     }
 
-    public APIConstants.TransactionReturnVal mobileMoneyWithdrawal(USSDRequest theUSSDRequest, PESAConstants.PESAType thePESAType) {
-        APIConstants.TransactionReturnVal rVal = APIConstants.TransactionReturnVal.ERROR;
+    // public APIConstants.TransactionReturnVal mobileMoneyWithdrawal(USSDRequest theUSSDRequest, PESAConstants.PESAType thePESAType) {
+    //     APIConstants.TransactionReturnVal rVal = APIConstants.TransactionReturnVal.ERROR;
+    //     try {
+    //         String strMobileNumberFrom = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+    //         String strMobileNumberTo = strMobileNumberFrom;
+    //         String strBeneficiaryName = "";
+    //
+    //         String strDate = MBankingDB.getDBDateTime().trim();
+    //         String strGUID = fnModifyUSSDSessionID(theUSSDRequest);
+    //
+    //         String strTraceID = theUSSDRequest.getUSSDTraceID();
+    //
+    //         String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
+    //
+    //         int intPriority = 200;
+    //
+    //         String strWithdrawalToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO_OPTION.name());
+    //
+    //         if (!strWithdrawalToOption.equals("MY_NUMBER")) {
+    //             String strMobileNumberHashMap = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO.name());
+    //             HashMap<String, String> hmAccount = Utils.toHashMap(strMobileNumberHashMap);
+    //             strMobileNumberTo = hmAccount.get("ACCOUNT_IDENTIFIER");
+    //             strBeneficiaryName = hmAccount.get("ACCOUNT_NAME");
+    //         }
+    //
+    //         strMobileNumberTo = APIUtils.sanitizePhoneNumber(strMobileNumberTo);
+    //
+    //         String strAccountFrom = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT.name());
+    //         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_AMOUNT.name());
+    //         String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_PIN.name());
+    //         strPIN = APIUtils.hashPIN(strPIN, strMobileNumberFrom);
+    //         String strTransaction = "Withdrawal Request";
+    //         String strTransactionDescription = "M-Pesa Cash Withdrawal to " + strMobileNumberFrom;
+    //         strTransactionDescription = PESAAPI.shortenName(strTransactionDescription);
+    //         XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
+    //
+    //         PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_B2C);
+    //
+    //         long getProductID = Long.parseLong(pesaParam.getProductId());
+    //         String strCategory = "MOBILE_MONEY_WITHDRAWAL";
+    //
+    //         String strSenderIdentifier = pesaParam.getSenderIdentifier();
+    //         String strSenderAccount = pesaParam.getSenderAccount();
+    //         String strSenderName = pesaParam.getSenderName();
+    //
+    //         PESA pesa = new PESA();
+    //
+    //         pesa.setOriginatorID(strGUID);
+    //         pesa.setProductID(getProductID);
+    //         pesa.setPESAType(thePESAType);
+    //         pesa.setPESAAction(PESAConstants.PESAAction.B2C);
+    //         pesa.setCommand("BusinessPayment");
+    //         pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
+    //         // pesa.setChargeProposed(null);
+    //
+    //         pesa.setInitiatorType("MSISDN");
+    //         pesa.setInitiatorIdentifier(strMobileNumberFrom);
+    //         pesa.setInitiatorAccount(strMobileNumberFrom);
+    //         // pesa.setInitiatorName(""); - Set after getting name from CBS
+    //         pesa.setInitiatorReference(strTraceID);
+    //         pesa.setInitiatorApplication("USSD");
+    //         pesa.setInitiatorOtherDetails("<DATA/>");
+    //
+    //         pesa.setSourceType("ACCOUNT_NO");
+    //         pesa.setSourceIdentifier(strAccountFrom);
+    //         pesa.setSourceAccount(strAccountFrom);
+    //         // pesa.setSourceName(""); - Set after getting name from CBS
+    //         pesa.setSourceReference(strUSSDSessionID);
+    //         pesa.setSourceApplication("CBS");
+    //         pesa.setSourceOtherDetails("<DATA/>");
+    //
+    //         pesa.setSenderType("SHORT_CODE");
+    //         pesa.setSenderIdentifier(strSenderIdentifier);
+    //         pesa.setSenderAccount(strSenderAccount);
+    //         pesa.setSenderName(strSenderName);
+    //         pesa.setSenderOtherDetails("<DATA/>");
+    //
+    //         pesa.setReceiverType("MSISDN");
+    //         pesa.setReceiverIdentifier(strMobileNumberTo);
+    //         pesa.setReceiverAccount(strMobileNumberTo);
+    //         // pesa.setReceiverName(""); - Set after getting name from CBS
+    //         pesa.setReceiverOtherDetails("<DATA/>");
+    //
+    //         pesa.setBeneficiaryType("MSISDN");
+    //         pesa.setBeneficiaryIdentifier(strMobileNumberTo);
+    //         pesa.setBeneficiaryAccount(strMobileNumberTo);
+    //         // pesa.setBeneficiaryName(""); - Set after getting name from CBS
+    //         pesa.setBeneficiaryOtherDetails("<DATA/>");
+    //
+    //         pesa.setBatchReference(strGUID);
+    //         pesa.setCorrelationReference(strTraceID);
+    //         pesa.setCorrelationApplication("USSD");
+    //         pesa.setTransactionCurrency("KES");
+    //         pesa.setTransactionAmount(Double.parseDouble(strAmount));
+    //         pesa.setTransactionRemark(strTransactionDescription);
+    //         pesa.setCategory("CASH_WITHDRAWAL");
+    //
+    //         pesa.setPriority(200);
+    //         pesa.setSendCount(0);
+    //
+    //         pesa.setSchedulePesa(PESAConstants.Condition.NO);
+    //         pesa.setPesaDateScheduled(strDate);
+    //         pesa.setPesaDateCreated(strDate);
+    //         pesa.setPESAXMLData("<DATA/>");
+    //
+    //         pesa.setPESAStatusCode(10);
+    //         pesa.setPESAStatusName("QUEUED");
+    //         pesa.setPESAStatusDescription("New PESA");
+    //         pesa.setPESAStatusDate(strDate);
+    //
+    //         String strWithdrawalStatus = "";
+    //         boolean isOtherNumber = false;
+    //
+    //         try {
+    //             if (strMobileNumberFrom.equals(strMobileNumberTo)) {
+    //                 isOtherNumber = true;
+    //             }
+    //
+    //             strWithdrawalStatus = CBSAPI.insertMpesaTransaction(strGUID, strUSSDSessionID, xmlGregorianCalendar, strTransaction, strTransactionDescription, strAccountFrom, BigDecimal.valueOf(Double.parseDouble(strAmount)), strMobileNumberFrom, strPIN, "USSD", strUSSDSessionID, "MBANKING", strMobileNumberTo, strMobileNumberTo, "M-Pesa", isOtherNumber, strMobileNumberTo);
+    //         } catch (Exception e) {
+    //
+    //             e.printStackTrace();
+    //         }
+    //
+    //         System.out.println("Withdrawal Status: " + strWithdrawalStatus);
+    //         String[] arrWithdrawalStatus = strWithdrawalStatus.split("%&:");
+    //
+    //         switch (arrWithdrawalStatus[0]) {
+    //             case "SUCCESS": {
+    //
+    //                 String strMemberName = arrWithdrawalStatus[1].trim();
+    //                 pesa.setSourceName(strMemberName);
+    //
+    //                 if (strWithdrawalToOption.equalsIgnoreCase("OTHER_NUMBER")) {
+    //                     pesa.setReceiverName(strMobileNumberTo);
+    //                     pesa.setBeneficiaryName(strBeneficiaryName);
+    //                 } else {
+    //                     pesa.setReceiverName(strMemberName);
+    //                     pesa.setBeneficiaryName(strMemberName);
+    //                 }
+    //
+    //                 pesa.setInitiatorName(strMemberName);
+    //
+    //                 if (PESAProcessor.sendPESA(pesa) > 0) {
+    //                     rVal = APIConstants.TransactionReturnVal.SUCCESS;
+    //                 } else {
+    //                     CBSAPI.reverseWithdrawalRequest(strGUID);
+    //                 }
+    //                 break;
+    //             }
+    //             case "INCORRECT_PIN": {
+    //                 rVal = APIConstants.TransactionReturnVal.INCORRECT_PIN;
+    //                 break;
+    //             }
+    //             case "INVALID_ACCOUNT": {
+    //                 rVal = APIConstants.TransactionReturnVal.INVALID_ACCOUNT;
+    //                 break;
+    //             }
+    //             case "INSUFFICIENT_BAL": {
+    //                 rVal = APIConstants.TransactionReturnVal.INSUFFICIENT_BAL;
+    //                 break;
+    //             }
+    //             case "ACCOUNT_NOT_ACTIVE": {
+    //                 rVal = APIConstants.TransactionReturnVal.ACCOUNT_NOT_ACTIVE;
+    //                 break;
+    //             }
+    //             case "BLOCKED": {
+    //                 rVal = APIConstants.TransactionReturnVal.BLOCKED;
+    //                 break;
+    //             }
+    //             default: {
+    //                 rVal = APIConstants.TransactionReturnVal.ERROR;
+    //             }
+    //         }
+    //     } catch (Exception e) {
+    //
+    //         System.err.println(this.getClass().getSimpleName() + "." + new Object() {
+    //         }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
+    //         e.printStackTrace();
+    //     }
+    //
+    //     return rVal;
+    // }
+
+    public TransactionWrapper<FlexicoreHashMap> mobileMoneyWithdrawal(USSDRequest theUSSDRequest) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+        String strCategory = "MPESA_WITHDRAWAL";
+
+        // USSDAPIConstants.TransactionReturnVal rVal = USSDAPIConstants.TransactionReturnVal.ERROR;
         try {
+            String strDateTime = MBankingDB.getDBDateTime();
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
+
             String strMobileNumberFrom = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
             String strMobileNumberTo = strMobileNumberFrom;
-            String strBeneficiaryName = "";
 
-            String strDate = MBankingDB.getDBDateTime().trim();
-            String strGUID = fnModifyUSSDSessionID(theUSSDRequest);
-
+            // String strOriginatorID = theUSSDRequest.getUSSDTraceID();
             String strTraceID = theUSSDRequest.getUSSDTraceID();
 
-            String strUSSDSessionID = fnModifyUSSDSessionID(theUSSDRequest);
+            String strMemberName = getUserFullName(strMobileNumber).trim();
+
+            String strTransactionID = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
 
             int intPriority = 200;
 
-            String strWithdrawalToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO_OPTION.name());
+            String strOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_OPTION.name());
+            String strToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO_OPTION.name());
 
-            if (!strWithdrawalToOption.equals("MY_NUMBER")) {
-                String strMobileNumberHashMap = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO.name());
-                HashMap<String, String> hmAccount = Utils.toHashMap(strMobileNumberHashMap);
-                strMobileNumberTo = hmAccount.get("ACCOUNT_IDENTIFIER");
-                strBeneficiaryName = hmAccount.get("ACCOUNT_NAME");
+            // System.out.println("strOption = " + strOption);
+            // System.out.println("strToOption = " + strToOption);
+
+            APIUtils.WithdrawalChannel withdrawalChannel = APIUtils.getWithdrawalChannel("M-PESA");
+            if (withdrawalChannel != null) {
+                if (withdrawalChannel.hasWithdrawalToOtherNumberEnabled()) {
+                    if (strToOption != null) {
+                        if (strToOption.equalsIgnoreCase("OTHER_NUMBER")) {
+                            String strMobileNumberHashMap = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_TO.name());
+                            HashMap<String, String> hmAccount = Utils.toHashMap(strMobileNumberHashMap);
+                            strMobileNumberTo = hmAccount.get("ACCOUNT_IDENTIFIER");
+
+                            strMobileNumberTo = APIUtils.sanitizePhoneNumber(strMobileNumberTo);
+                        }
+                    }
+                }
             }
 
             strMobileNumberTo = APIUtils.sanitizePhoneNumber(strMobileNumberTo);
 
-            String strAccountFrom = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT.name());
+            String strAccountDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT.name());
+            HashMap<String, String> hmAccountDetails = Utils.toHashMap(strAccountDetails);
+            String strSourceCustomerIdentifier = hmAccountDetails.get("cust_id");
+            String strSourceAccountNo = hmAccountDetails.get("ac_no");
+            String strSourceAccountName = hmAccountDetails.get("ac_name");
+            String strSourceAccountLabel = hmAccountDetails.get("ac_label");
+            String strSourceAccountAvailableBalance = hmAccountDetails.get("ac_bal");
+
             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_AMOUNT.name());
             String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.WITHDRAWAL_PIN.name());
-            strPIN = APIUtils.hashPIN(strPIN, strMobileNumberFrom);
-            String strTransaction = "Withdrawal Request";
-            String strTransactionDescription = "M-Pesa Cash Withdrawal to " + strMobileNumberFrom;
-            strTransactionDescription = PESAAPI.shortenName(strTransactionDescription);
-            XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
 
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_B2C);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2C);
 
             long getProductID = Long.parseLong(pesaParam.getProductId());
-            String strCategory = "MOBILE_MONEY_WITHDRAWAL";
 
             String strSenderIdentifier = pesaParam.getSenderIdentifier();
             String strSenderAccount = pesaParam.getSenderAccount();
             String strSenderName = pesaParam.getSenderName();
 
+            String strSourceName = strSourceAccountName;
+            String strReceiverName = strSourceAccountName;
+            String strBeneficiaryName = strSourceAccountName;
+
+            if (strToOption != null) {
+                if (strToOption.equalsIgnoreCase("OTHER_NUMBER")) {
+                    strSourceName = strMobileNumberTo;
+                    strReceiverName = strMobileNumberTo;
+                    strBeneficiaryName = strMobileNumberTo;
+                }
+            }
+
             PESA pesa = new PESA();
 
-            pesa.setOriginatorID(strGUID);
+            String strOriginatorID = strTransactionID;
+
+            pesa.setOriginatorID(strOriginatorID);
             pesa.setProductID(getProductID);
-            pesa.setPESAType(thePESAType);
+
+            pesa.setPESAType(PESAConstants.PESAType.PESA_OUT);
             pesa.setPESAAction(PESAConstants.PESAAction.B2C);
             pesa.setCommand("BusinessPayment");
             pesa.setSensitivity(PESAConstants.Sensitivity.NORMAL);
-            // pesa.setChargeProposed(null);
+
+            pesa.setPESAStatusCode(10);
+            pesa.setPESAStatusName("QUEUED");
+            pesa.setPESAStatusDescription("New PESA");
+            pesa.setPESAStatusDate(strDateTime);
 
             pesa.setInitiatorType("MSISDN");
-            pesa.setInitiatorIdentifier(strMobileNumberFrom);
-            pesa.setInitiatorAccount(strMobileNumberFrom);
-            // pesa.setInitiatorName(""); - Set after getting name from CBS
+            pesa.setInitiatorIdentifier(strMobileNumber);
+            pesa.setInitiatorAccount(strMobileNumber);
+            pesa.setInitiatorName(strMemberName);
             pesa.setInitiatorReference(strTraceID);
             pesa.setInitiatorApplication("USSD");
             pesa.setInitiatorOtherDetails("<DATA/>");
 
             pesa.setSourceType("ACCOUNT_NO");
-            pesa.setSourceIdentifier(strAccountFrom);
-            pesa.setSourceAccount(strAccountFrom);
-            // pesa.setSourceName(""); - Set after getting name from CBS
-            pesa.setSourceReference(strUSSDSessionID);
+            pesa.setSourceIdentifier(strSourceAccountNo);
+            pesa.setSourceAccount(strSourceAccountNo);
+            pesa.setSourceName(strSourceAccountName);
+            // deferred to below
+            pesa.setSourceReference(strOriginatorID);
             pesa.setSourceApplication("CBS");
             pesa.setSourceOtherDetails("<DATA/>");
 
@@ -1156,108 +1382,178 @@ public class USSDAPI {
             pesa.setReceiverType("MSISDN");
             pesa.setReceiverIdentifier(strMobileNumberTo);
             pesa.setReceiverAccount(strMobileNumberTo);
-            // pesa.setReceiverName(""); - Set after getting name from CBS
+            pesa.setReceiverName(strReceiverName);
             pesa.setReceiverOtherDetails("<DATA/>");
 
             pesa.setBeneficiaryType("MSISDN");
             pesa.setBeneficiaryIdentifier(strMobileNumberTo);
             pesa.setBeneficiaryAccount(strMobileNumberTo);
-            // pesa.setBeneficiaryName(""); - Set after getting name from CBS
+            pesa.setBeneficiaryName(strReceiverName);
             pesa.setBeneficiaryOtherDetails("<DATA/>");
 
-            pesa.setBatchReference(strGUID);
+
+            if (strToOption != null) {
+                if (strToOption.equalsIgnoreCase("OTHER_NUMBER")) {
+                    pesa.setReceiverName(strMobileNumberTo);
+                    pesa.setBeneficiaryName(strMobileNumberTo);
+                } else {
+                    pesa.setReceiverName(strMemberName);
+                    pesa.setBeneficiaryName(strMemberName);
+                }
+            } else {
+                pesa.setReceiverName(strMemberName);
+                pesa.setBeneficiaryName(strMemberName);
+            }
+
+            pesa.setBatchReference(strOriginatorID);
             pesa.setCorrelationReference(strTraceID);
             pesa.setCorrelationApplication("USSD");
             pesa.setTransactionCurrency("KES");
             pesa.setTransactionAmount(Double.parseDouble(strAmount));
-            pesa.setTransactionRemark(strTransactionDescription);
-            pesa.setCategory("CASH_WITHDRAWAL");
+            pesa.setTransactionRemark("Mobile withdrawal to " + strMobileNumberTo);
+            pesa.setCategory(strCategory);
 
             pesa.setPriority(200);
             pesa.setSendCount(0);
 
-            pesa.setSchedulePesa(PESAConstants.Condition.NO);
-            pesa.setPesaDateScheduled(strDate);
-            pesa.setPesaDateCreated(strDate);
             pesa.setPESAXMLData("<DATA/>");
 
-            pesa.setPESAStatusCode(10);
-            pesa.setPESAStatusName("QUEUED");
-            pesa.setPESAStatusDescription("New PESA");
-            pesa.setPESAStatusDate(strDate);
+            pesa.setSchedulePesa(PESAConstants.Condition.NO);
+            pesa.setPesaDateScheduled(strDateTime);
+            pesa.setPesaDateCreated(strDateTime);
 
-            String strWithdrawalStatus = "";
-            boolean isOtherNumber = false;
+            TransactionWrapper<FlexicoreHashMap> mobileMoneyWithdrawalWrapper = CBSAPI.mobileMoneyWithdrawal(
+                    strMobileNumber,
+                    "MSISDN",
+                    strMobileNumber,
+                    "IMSI",
+                    strSIMID,
+                    pesa.getOriginatorID(),
+                    String.valueOf(pesa.getProductID()),
+                    pesa.getPESAType().getValue(),
+                    pesa.getPESAAction().getValue(),
+                    pesa.getCommand(),
+                    new FlexicoreHashMap()
+                            .putValue("identifier_type", pesa.getInitiatorType())
+                            .putValue("identifier", pesa.getInitiatorIdentifier())
+                            .putValue("account", pesa.getInitiatorAccount())
+                            .putValue("name", pesa.getInitiatorName())
+                            .putValue("reference", pesa.getInitiatorReference())
+                            .putValue("other_details", pesa.getInitiatorOtherDetails()),
 
-            try {
-                if (strMobileNumberFrom.equals(strMobileNumberTo)) {
-                    isOtherNumber = true;
-                }
+                    new FlexicoreHashMap()
+                            .putValue("identifier_type", pesa.getSourceType())
+                            .putValue("identifier", pesa.getSourceIdentifier())
+                            .putValue("account", pesa.getSourceAccount())
+                            .putValue("name", pesa.getSourceName())
+                            .putValue("reference", pesa.getSourceReference())
+                            .putValue("other_details", pesa.getSourceOtherDetails()),
 
-                strWithdrawalStatus = CBSAPI.insertMpesaTransaction(strGUID, strUSSDSessionID, xmlGregorianCalendar, strTransaction, strTransactionDescription, strAccountFrom, BigDecimal.valueOf(Double.parseDouble(strAmount)), strMobileNumberFrom, strPIN, "USSD", strUSSDSessionID, "MBANKING", strMobileNumberTo, strMobileNumberTo, "M-Pesa", isOtherNumber, strMobileNumberTo);
-            } catch (Exception e) {
+                    new FlexicoreHashMap()
+                            .putValue("identifier_type", pesa.getSenderType())
+                            .putValue("identifier", pesa.getSenderIdentifier())
+                            .putValue("account", pesa.getSenderAccount())
+                            .putValue("name", pesa.getSenderName())
+                            .putValue("reference", pesa.getSenderReference())
+                            .putValue("other_details", pesa.getSenderOtherDetails()),
 
-                e.printStackTrace();
-            }
+                    new FlexicoreHashMap()
+                            .putValue("identifier_type", pesa.getReceiverType())
+                            .putValue("identifier", pesa.getReceiverIdentifier())
+                            .putValue("account", pesa.getReceiverAccount())
+                            .putValue("name", pesa.getReceiverName())
+                            .putValue("reference", pesa.getReceiverReference())
+                            .putValue("other_details", pesa.getReceiverOtherDetails()),
 
-            System.out.println("Withdrawal Status: " + strWithdrawalStatus);
-            String[] arrWithdrawalStatus = strWithdrawalStatus.split("%&:");
+                    new FlexicoreHashMap()
+                            .putValue("identifier_type", pesa.getBeneficiaryType())
+                            .putValue("identifier", pesa.getBeneficiaryIdentifier())
+                            .putValue("account", pesa.getBeneficiaryAccount())
+                            .putValue("name", pesa.getBeneficiaryName())
+                            .putValue("reference", pesa.getBeneficiaryReference())
+                            .putValue("other_details", pesa.getBeneficiaryOtherDetails()),
 
-            switch (arrWithdrawalStatus[0]) {
-                case "SUCCESS": {
+                    pesa.getTransactionAmount(),
+                    strCategory,
+                    pesa.getTransactionRemark(),
+                    strTraceID,
+                    "USSD",
+                    "MBANKING");
 
-                    String strMemberName = arrWithdrawalStatus[1].trim();
-                    pesa.setSourceName(strMemberName);
+            FlexicoreHashMap mobileMoneyWithdrawalMap = mobileMoneyWithdrawalWrapper.getSingleRecord();
 
-                    if (strWithdrawalToOption.equalsIgnoreCase("OTHER_NUMBER")) {
-                        pesa.setReceiverName(strMobileNumberTo);
-                        pesa.setBeneficiaryName(strBeneficiaryName);
+            CBSAPI.SMSMSG cbsMSG = mobileMoneyWithdrawalMap.getValue("msg_object");
+
+            if (mobileMoneyWithdrawalWrapper.hasErrors()) {
+                sendSMS(strMobileNumber, cbsMSG.getMessage(), cbsMSG.getMode(), cbsMSG.getPriority(), strCategory, theUSSDRequest);
+            } else {
+
+                String strFormattedAmount = Utils.formatDouble(strAmount, "#,##0.00");
+                String strFormattedDateTime = Utils.formatDate(strDateTime, "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm:ss");
+
+                String strSourceReference = mobileMoneyWithdrawalMap.getFlexicoreHashMap("response_payload").getStringValue("transaction_reference");
+                pesa.setSourceReference(strSourceReference);
+
+                if (PESAProcessor.sendPESA(pesa) > 0) {
+                    // Substituted with the one for results
+
+                    sendSMS(strMobileNumber, cbsMSG.getMessage(), cbsMSG.getMode(), cbsMSG.getPriority(), strCategory, theUSSDRequest);
+                } else {
+
+                    TransactionWrapper<FlexicoreHashMap> reversalCashWithdrawalWrapper =
+                            CBSAPI.reverseMobileMoneyWithdrawal(
+                                    strMobileNumber,
+                                    "MSISDN",
+                                    strMobileNumber,
+                                    pesa.getOriginatorID(),
+                                    pesa.getBeneficiaryType(),
+                                    pesa.getBeneficiaryIdentifier(),
+                                    pesa.getBeneficiaryName(),
+                                    pesa.getBeneficiaryOtherDetails(),
+                                    "",
+                                    DateTime.getCurrentDateTime("yyyy-MM-dd HH:mm:ss"));
+
+                    String strMSG;
+                    if (!reversalCashWithdrawalWrapper.hasErrors()) {
+                        strMSG = "Dear member, your M-PESA Withdrawal request of KES " + strFormattedAmount + " to " + strMobileNumberTo + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strGeneralMenusUSSDCode + " to check your balance.";
                     } else {
-                        pesa.setReceiverName(strMemberName);
-                        pesa.setBeneficiaryName(strMemberName);
+                        strMSG = "Dear member, your M-PESA Withdrawal request of KES " + strFormattedAmount + " to " + strMobileNumberTo + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
                     }
 
-                    pesa.setInitiatorName(strMemberName);
+                    sendSMS(strMobileNumber, strMSG, MSGConstants.MSGMode.SAF, 210, strCategory, theUSSDRequest);
 
-                    if (PESAProcessor.sendPESA(pesa) > 0) {
-                        rVal = APIConstants.TransactionReturnVal.SUCCESS;
-                    } else {
-                        CBSAPI.reverseWithdrawalRequest(strGUID);
-                    }
-                    break;
-                }
-                case "INCORRECT_PIN": {
-                    rVal = APIConstants.TransactionReturnVal.INCORRECT_PIN;
-                    break;
-                }
-                case "INVALID_ACCOUNT": {
-                    rVal = APIConstants.TransactionReturnVal.INVALID_ACCOUNT;
-                    break;
-                }
-                case "INSUFFICIENT_BAL": {
-                    rVal = APIConstants.TransactionReturnVal.INSUFFICIENT_BAL;
-                    break;
-                }
-                case "ACCOUNT_NOT_ACTIVE": {
-                    rVal = APIConstants.TransactionReturnVal.ACCOUNT_NOT_ACTIVE;
-                    break;
-                }
-                case "BLOCKED": {
-                    rVal = APIConstants.TransactionReturnVal.BLOCKED;
-                    break;
-                }
-                default: {
-                    rVal = APIConstants.TransactionReturnVal.ERROR;
+                    reversalCashWithdrawalWrapper.getSingleRecord().putValue("display_message", strMSG);
+
+                    return reversalCashWithdrawalWrapper;
                 }
             }
+
+            mobileMoneyWithdrawalWrapper.getSingleRecord().putValue("display_message", cbsMSG.getMessage());
+
+            return mobileMoneyWithdrawalWrapper;
+
         } catch (Exception e) {
-
+            e.printStackTrace();
             System.err.println(this.getClass().getSimpleName() + "." + new Object() {
             }.getClass().getEnclosingMethod().getName() + "() ERROR : " + e.getMessage());
-            e.printStackTrace();
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your Cash Withdrawal request. Please try again later." + getTrailerMessage()))
+            ;
+
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+
+
+			/*sendSMS(strMobileNumber, "Sorry, an error occurred while processing your Cash Withdrawal request. Please try again later."+getTrailerMessage(),
+					MSGConstants.MSGMode.SAF, 210, strCategory, theUSSDRequest);*/
+
         }
 
-        return rVal;
+        return resultWrapper;
     }
 
     public APIConstants.TransactionReturnVal atmCashWithdrawal(USSDRequest theUSSDRequest) {
@@ -1389,7 +1685,7 @@ public class USSDAPI {
             strTransactionDescription = PESAAPI.shortenName(strTransactionDescription);
             XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
 
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.AIRTIME);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.AIRTIME);
 
             long getProductID = Long.parseLong(pesaParam.getProductId());
             String strCategory = "AIRTIME_PURCHASE";
@@ -1562,7 +1858,7 @@ public class USSDAPI {
             strTransactionDescription = PESAAPI.shortenName(strTransactionDescription);
             XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
 
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_B2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2B);
 
             long getProductID = Long.parseLong(pesaParam.getProductId());
             String strCategory = "BILL_PAYMENT";
@@ -1736,7 +2032,7 @@ public class USSDAPI {
             strTransactionDescription = PESAAPI.shortenName(strTransactionDescription);
             XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
 
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_B2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2B);
 
             long getProductID = Long.parseLong(pesaParam.getProductId());
             String strCategory = "BANK_TRANSFER";
@@ -2740,8 +3036,8 @@ public class USSDAPI {
                 }
             }
 
-            String strMinimum = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.USSD, strUSSDParamType + "/MIN_AMOUNT");
-            String strMaximum = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.USSD, strUSSDParamType + "/MAX_AMOUNT");
+            String strMinimum = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.USSD, strUSSDParamType + "/MIN_AMOUNT");
+            String strMaximum = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.USSD, strUSSDParamType + "/MAX_AMOUNT");
 
             rVal.setMinimum(strMinimum);
             rVal.setMaximum(strMaximum);
@@ -3621,5 +3917,11 @@ public class USSDAPI {
         }
 
         return resultWrapper;
+    }
+
+    public String getUserFirstName(String theUserPhoneNumber) {
+        String strUserFullName = getUserFullName(theUserPhoneNumber);
+
+        return strUserFullName.split(" ")[0];
     }
 }

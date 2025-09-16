@@ -685,9 +685,9 @@ public class APIUtils {
 
     public static int fnSendSMS(String theReceiver, String theMessage, String theCharge, MSGConstants.MSGMode theMode, int thePriority, String theCategory, String theRequestApplication, String theSourceApplication, String theSessionID, String theCorrelationID){
         try {
-            String strProductID = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID");
+            String strProductID = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID");
             long lnProductID = Long.parseLong(strProductID);
-            String strSender = MBankingAPI.getValueFromLocalParams(APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
+            String strSender = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
             String strCommand = "BulkSMS";
             MSGConstants.Sensitivity theSensitivity = MSGConstants.Sensitivity.PERSONAL;
 

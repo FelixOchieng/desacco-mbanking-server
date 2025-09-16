@@ -22,6 +22,7 @@ import ke.skyworld.mbanking.nav.Navision;
 import ke.skyworld.mbanking.nav.utils.HttpSOAP;
 import ke.skyworld.mbanking.nav.utils.LoggingLevel;
 import ke.skyworld.mbanking.nav.utils.XmlObject;
+import ke.skyworld.mbanking.ussdapi.USSDAPI;
 import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import ke.skyworld.mbanking.ussdapplication.AppConstants;
 import org.w3c.dom.Document;
@@ -7484,6 +7485,350 @@ public class CBSAPI {
                     .putValue("end_session", USSDAPIConstants.Condition.YES)
                     .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
                     .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage()));
+        }
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> mobileMoneyWithdrawal(String strRequestingMobileNumber,
+                                                                             String theIdentifierType,
+                                                                             String theIdentifier,
+                                                                             String theDeviceIdentifierType,
+                                                                             String theDeviceIdentifier,
+                                                                             String theOriginatorId,
+                                                                             String theProductId,
+                                                                             String thePesaType,
+                                                                             String theAction,
+                                                                             String theCommand,
+                                                                             FlexicoreHashMap theInitiatorDetailsMap,
+                                                                             FlexicoreHashMap theSourceDetailsMap,
+                                                                             FlexicoreHashMap theSenderDetailsMap,
+                                                                             FlexicoreHashMap theReceiverDetailsMap,
+                                                                             FlexicoreHashMap theBeneficiaryDetailsMap,
+                                                                             double theAmount,
+                                                                             String theCategory,
+                                                                             String theTransactionDescription,
+                                                                             String theSourceReference,
+                                                                             String theRequestApplication,
+                                                                             String theSourceApplication) {
+        TransactionWrapper<FlexicoreHashMap> checkUserResultMapWrapper = checkUser(UUID.randomUUID().toString(), theIdentifierType, theIdentifier, theDeviceIdentifierType, theDeviceIdentifier);
+        FlexicoreHashMap checkUserResultMap = checkUserResultMapWrapper.getSingleRecord();
+
+        if (checkUserResultMapWrapper.hasErrors()) {
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage("Dear member, an error occurred while processing your Cash Withdrawal request. Please try again later.");
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            checkUserResultMap.putValue("msg_object", cbsMSG);
+
+            return checkUserResultMapWrapper;
+        }
+
+        FlexicoreHashMap signatoryDetailsMap = checkUserResultMap.getFlexicoreHashMap("signatory_details");
+
+        return mobileMoneyWithdrawal(signatoryDetailsMap, strRequestingMobileNumber,
+                theIdentifierType,
+                theIdentifier,
+                theDeviceIdentifierType,
+                theDeviceIdentifier,
+                theOriginatorId,
+                theProductId,
+                thePesaType,
+                theAction,
+                theCommand,
+                theInitiatorDetailsMap,
+                theSourceDetailsMap,
+                theSenderDetailsMap,
+                theReceiverDetailsMap,
+                theBeneficiaryDetailsMap,
+                theAmount,
+                theCategory,
+                theTransactionDescription,
+                theSourceReference,
+                theRequestApplication,
+                theSourceApplication);
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> mobileMoneyWithdrawal(
+            FlexicoreHashMap signatoryDetailsMap,
+            String strRequestingMobileNumber,
+            String theIdentifierType,
+            String theIdentifier,
+            String theDeviceIdentifierType,
+            String theDeviceIdentifier,
+            String theOriginatorId,
+            String theProductId,
+            String thePesaType,
+            String theAction,
+            String theCommand,
+            FlexicoreHashMap theInitiatorDetailsMap,
+            FlexicoreHashMap theSourceDetailsMap,
+            FlexicoreHashMap theSenderDetailsMap,
+            FlexicoreHashMap theReceiverDetailsMap,
+            FlexicoreHashMap theBeneficiaryDetailsMap,
+            double theAmount,
+            String theCategory,
+            String theTransactionDescription,
+            String theSourceReference,
+            String theRequestApplication,
+            String theSourceApplication) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> cashWithdrawalWrapper = DeSaccoCBS.withdrawal(
+                    theIdentifierType,
+                    theIdentifier,
+                    theOriginatorId,
+                    theProductId,
+                    thePesaType,
+                    theAction,
+                    theCommand,
+                    theInitiatorDetailsMap,
+                    theSourceDetailsMap,
+                    theSenderDetailsMap,
+                    theReceiverDetailsMap,
+                    theBeneficiaryDetailsMap,
+                    theAmount,
+                    theCategory,
+                    theTransactionDescription,
+                    theSourceReference,
+                    theRequestApplication,
+                    theSourceApplication,
+                    "MPESA");
+
+            if (cashWithdrawalWrapper.hasErrors()) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.mobileMoneyWithdrawal() - " + cashWithdrawalWrapper.getErrors() + "\n" + cashWithdrawalWrapper.getMessages());
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Dear member, an error occurred while processing your Cash Withdrawal request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Dear member, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                        .putValue("msg_object", cbsMSG));
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap cashWithdrawalResultMap = cashWithdrawalWrapper.getSingleRecord();
+
+            String requestStatus = cashWithdrawalResultMap.getStringValue("request_status");
+
+
+            if (requestStatus.equalsIgnoreCase("INSUFFICIENT_BAL")) {
+                final USSDAPI theUSSDAPI = new USSDAPI();
+                String strMobileNumber = String.valueOf(strRequestingMobileNumber);
+                String strFirstName = theUSSDAPI.getUserFirstName(strMobileNumber);
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.mobileMoneyWithdrawal(" + theOriginatorId + ", " + theSourceDetailsMap.getStringValue("account") + ")");
+                cashWithdrawalResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Dear member, your account balance is insufficient to process your Cash Withdrawal request");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.NO)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, your account balance is insufficient to process your Cash Withdrawal request.")
+                        .putValue("msg_object", cbsMSG));
+
+                return resultWrapper;
+            }
+
+            if (requestStatus.equalsIgnoreCase("BLOCKED")) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.mobileMoneyWithdrawal(" + theOriginatorId + ", " + theSourceDetailsMap.getStringValue("account") + ")");
+                cashWithdrawalResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Dear member, your request could not be processed at the moment. " + getTrailerMessage() + "\n\nERR_MEMBL100\n");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.NO)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Dear member, your request could not be processed at the moment. " + getTrailerMessage() + "\n\nERR_MEMBL100\n")
+                        .putValue("msg_object", cbsMSG));
+
+                return resultWrapper;
+            }
+
+            if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.mobileMoneyWithdrawal(" + theOriginatorId + ", " + theSourceDetailsMap.getStringValue("account") + ")");
+                cashWithdrawalResultMap.printRecordVerticalLabelled();
+
+                SMSMSG cbsMSG = new SMSMSG();
+                cbsMSG.setMessage("Sorry, an error occurred while processing your Cash Withdrawal request. Please try again later.");
+                cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+                cbsMSG.setPriority(210);
+                cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Sorry, an error occurred while processing your Cash Withdrawal request. Please try again later." + getTrailerMessage())
+                        .putValue("msg_object", cbsMSG)
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap withdrawalMap = cashWithdrawalResultMap.getFlexicoreHashMap("response_payload");
+
+            String strTransactionDateTime = withdrawalMap.getStringValueOrIfNull("transaction_date_time", "").trim();
+            String strFormattedDateTime = Utils.formatDate(strTransactionDateTime, "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm:ss");
+            String strFormattedAmount = Utils.formatDouble(theAmount, "#,##0.00");
+
+            HashMap<String, String> memberDetails = new HashMap<>();
+
+            if(theIdentifierType.equalsIgnoreCase("MSISDN")){
+                memberDetails = CBSAPI.getMemberDetails(theIdentifier);
+            }else{
+                memberDetails = CBSAPI.getMemberDetails(theIdentifierType, theIdentifier);
+            }
+
+            String firstName = "Member";
+
+            // String strFullName = memberDetails.get("full_name");
+            //
+            // if(strFullName != null && !strFullName.isBlank()){
+            //     firstName = strFullName.split(" ")[1];
+            // }
+
+            String strMSG = "Dear "+ firstName+", your Cash Withdrawal Request of KES " + strFormattedAmount + " to " + theBeneficiaryDetailsMap.getStringValue("account") + " has been received and is being processed.";
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage(strMSG);
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.SUCCESS)
+                    .putValue("display_message", "Cash Withdrawal has been received successfully and is being processed.")
+                    .putValue("msg_object", cbsMSG)
+                    .putValue("response_payload", withdrawalMap)
+                    .putValue("customer_full_name", signatoryDetailsMap.getStringValue("full_name"))
+            );
+
+            return resultWrapper;
+        } catch (Exception e) {
+            System.err.println(strRequestingMobileNumber + " => CBSAPI.mobileMoneyWithdrawal(): " + e.getMessage());
+            e.printStackTrace();
+
+            SMSMSG cbsMSG = new SMSMSG();
+            cbsMSG.setMessage("Sorry, an error occurred while processing your Cash Withdrawal request. Please try again later.");
+            cbsMSG.setMode(MSGConstants.MSGMode.SAF);
+            cbsMSG.setPriority(210);
+            cbsMSG.setSensitivity(MSGConstants.Sensitivity.NORMAL);
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                    .putValue("msg_object", cbsMSG));
+        }
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> reverseMobileMoneyWithdrawal(
+            String strRequestingMobileNumber,
+            String theIdentifierType,
+            String theIdentifier,
+            String theOriginatorId,
+            String theBeneficiaryIdentifierType,
+            String theBeneficiaryIdentifier,
+            String theBeneficiaryName,
+            String theBeneficiaryOtherDetails,
+            String theBeneficiaryReference,
+            String theTransactionDateTime) {
+
+        TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
+
+        try {
+
+            TransactionWrapper<FlexicoreHashMap> reversalWrapper = DeSaccoCBS.withdrawalResult(
+                    theIdentifierType,
+                    theIdentifier,
+                    theOriginatorId,
+                    "REVERSE_CONFIRMED",
+                    "Reversal Request",
+                    theBeneficiaryIdentifierType,
+                    theBeneficiaryIdentifier,
+                    theBeneficiaryName,
+                    theBeneficiaryOtherDetails,
+                    theBeneficiaryReference,
+                    theTransactionDateTime
+            );
+
+            if (reversalWrapper.hasErrors()) {
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.reverseMobileMoneyWithdrawal() - " + reversalWrapper.getErrors() + "\n" + reversalWrapper.getMessages());
+
+                resultWrapper.setStatusCode(HttpsURLConnection.HTTP_INTERNAL_ERROR);
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Dear member, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                );
+
+                return resultWrapper;
+            }
+
+            FlexicoreHashMap reversalResultMap = reversalWrapper.getSingleRecord();
+            String requestStatus = reversalResultMap.getStringValue("request_status");
+
+            if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+
+                System.err.println(strRequestingMobileNumber + " => UnSaccoCBS.reverseMobileMoneyWithdrawal(" + theOriginatorId + ")");
+                reversalResultMap.printRecordVerticalLabelled();
+
+                resultWrapper.setHasErrors(true);
+                resultWrapper.setData(new FlexicoreHashMap()
+                        .putValue("end_session", USSDAPIConstants.Condition.YES)
+                        .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                        .putValue("display_message", "Failed to Reverse Mobile Money for Originator ID " + theOriginatorId + "." + getTrailerMessage()));
+
+                return resultWrapper;
+            }
+
+            resultWrapper.setData(reversalResultMap.getFlexicoreHashMap("response_payload"));
+            return resultWrapper;
+        } catch (Exception e) {
+            System.err.println(strRequestingMobileNumber + " => CBSAPI.reverseMobileMoneyWithdrawal(): " + e.getMessage());
+            e.printStackTrace();
+
+            SMSMSG cbsMSG = new SMSMSG();
+
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setData(new FlexicoreHashMap()
+                    .putValue("end_session", USSDAPIConstants.Condition.YES)
+                    .putValue("cbs_api_return_val", USSDAPIConstants.StandardReturnVal.ERROR)
+                    .putValue("display_message", "Sorry, an error occurred while processing your request. Please try again later." + getTrailerMessage())
+                    .putValue("msg_object", cbsMSG));
         }
         return resultWrapper;
     }

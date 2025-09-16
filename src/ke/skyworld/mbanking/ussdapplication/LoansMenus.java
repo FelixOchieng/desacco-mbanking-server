@@ -773,7 +773,7 @@ public interface LoansMenus {
         USSDResponse theUSSDResponse = null;
         final USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
-        PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+        PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
         String strSender = pesaParam.getSenderIdentifier();
 
         try {
@@ -840,6 +840,7 @@ public interface LoansMenus {
                         }
                         break;
                     }
+
                     case LOAN_REPAYMENT_GROUP: {
                         String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP.name());
 
@@ -852,25 +853,22 @@ public interface LoansMenus {
                         }
                         break;
                     }
+
                     case LOAN_REPAYMENT_LOAN: {
                         String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                         HashMap<String, String> hmLoan = Utils.toHashMap(strLoanType);
-                        String strLoanName = hmLoan.get("LOAN_NAME");
-                        String strLoanID = hmLoan.get("LOAN_ID");
+                        String strLoanName = hmLoan.get("ac_name");
+                        String strLoanID = hmLoan.get("ac_no");
+                        String strLoanBalance = hmLoan.get("bal");
+                        String strLoanInterest = hmLoan.get("intr");
 
-                        String strLoan = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
-                        if (!strLoan.equals("")) {
-                            String strLoanBalance = "";
-                            strLoanBalance = CBSAPI.getLoanBalance(strLoanID);
-                            if (strLoanBalance == null) {
-                                strLoanBalance = "";
-                            }
+                        double loanBalance = Double.parseDouble(strLoanBalance.replaceAll(",", ""));
+                        double loanInterest = Double.parseDouble(strLoanInterest.replaceAll(",", ""));
+                        double totalLoanBalance = loanBalance + loanInterest;
+                        String strTotalLoanBalance = Utils.formatDouble(totalLoanBalance, "#,##0.00");
 
-                            if (!strLoanBalance.equals("")) {
-                                strLoanBalance = strLoanBalance + "\n";
-                            }
-
-                            String strResponse = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\n" + strLoanBalance + "Enter amount:";
+                        if (!strLoanType.isEmpty()) {
+                            String strResponse = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\nBal KES: " + strTotalLoanBalance + "\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                         } else {
                             String strLoanGroup = theUSSDRequest.getUSSDData().getOrDefault(AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP.name(), "");
@@ -882,8 +880,15 @@ public interface LoansMenus {
                     case LOAN_REPAYMENT_AMOUNT: {
                         String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                         HashMap<String, String> hmLoan = Utils.toHashMap(strLoanType);
-                        String strLoanName = hmLoan.get("LOAN_NAME");
-                        String strLoanID = hmLoan.get("LOAN_ID");
+                        String strLoanName = hmLoan.get("ac_name");
+                        String strLoanID = hmLoan.get("ac_no");
+                        String strLoanBalance = hmLoan.get("bal");
+                        String strLoanInterest = hmLoan.get("intr");
+
+                        double loanBalance = Double.parseDouble(strLoanBalance.replaceAll(",", ""));
+                        double loanInterest = Double.parseDouble(strLoanInterest.replaceAll(",", ""));
+                        double totalLoanBalance = loanBalance + loanInterest;
+                        String strTotalLoanBalance = Utils.formatDouble(totalLoanBalance, "#,##0.00");
 
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
                         if (strAmount.matches("^[1-9][0-9]*$")) {
@@ -922,10 +927,7 @@ public interface LoansMenus {
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                             }
                         } else {
-                            String strLoanBalance = String.valueOf(CBSAPI.getLoanBalance(strLoanID));
-                            strLoanBalance = Utils.formatDouble(strLoanBalance, "#,###");
-
-                            String strResponse = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\n{Please enter a valid amount}\nLoan Balance: KES " + strLoanBalance + "\nEnter amount:";
+                            String strResponse = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\n{Please enter a valid amount}\nLoan Balance: KES " + strTotalLoanBalance + "\nEnter amount:";
 
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                         }
@@ -934,13 +936,13 @@ public interface LoansMenus {
                     case LOAN_REPAYMENT_CONFIRMATION: {
                         String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                         HashMap<String, String> hmLoan = Utils.toHashMap(strLoanType);
-                        String strLoanName = hmLoan.get("LOAN_NAME");
-                        String strLoanID = hmLoan.get("LOAN_ID");
+                        String strLoanName = hmLoan.get("ac_name");
+                        String strLoanID = hmLoan.get("ac_no");
+                        String strLoanBalance = hmLoan.get("bal");
+                        String strLoanInterest = hmLoan.get("intr");
 
                         String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_CONFIRMATION.name());
                         if (strConfirmation.equalsIgnoreCase("YES")) {
-
-                            String strLoan = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
 
                             String strResponse = "";
@@ -1023,6 +1025,7 @@ public interface LoansMenus {
                 }
             }
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("theAppMenus.displayMenu_LoanRepayment() ERROR : " + e.getMessage());
         } finally {
             theAppMenus = null;
@@ -1043,6 +1046,7 @@ public interface LoansMenus {
             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_REPAYMENT_OPTION, "NO", theArrayListUSSDSelectOption);
             return theUSSDResponse;
         } catch (Exception e) {
+            e.printStackTrace();
             System.err.println("theAppMenus.getLoanRepaymentOption() ERROR : " + e.getMessage());
         } finally {
             theAppMenus = null;

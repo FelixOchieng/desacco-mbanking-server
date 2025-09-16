@@ -1,6 +1,7 @@
 package ke.skyworld.mbanking.ussdapplication;
 
 
+import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
@@ -10,6 +11,7 @@ import ke.skyworld.lib.mbanking.utils.Utils;
 import ke.skyworld.mbanking.pesaapi.APIConstants;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
 
+import ke.skyworld.mbanking.pesaapi.PESAAPIConstants;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
@@ -121,7 +123,7 @@ public interface BuyGoodsMenu {
 
                 case "CONFIRMATION": {
 
-                    PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+                    PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
 
                     String strSender = pesaParam.getSenderIdentifier();
 

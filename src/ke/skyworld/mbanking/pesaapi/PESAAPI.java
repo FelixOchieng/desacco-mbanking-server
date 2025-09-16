@@ -830,7 +830,50 @@ public class PESAAPI {
         }
     }
 
-    public static PesaParam getPesaParam(APIConstants.APPLICATION_TYPE theApplicationType, APIConstants.PESA_PARAM_TYPE thePesaParamType) {
+    // public static PesaParam getPesaParam(APIConstants.APPLICATION_TYPE theApplicationType, APIConstants.PESA_PARAM_TYPE thePesaParamType) {
+    //     PesaParam rVal = new PesaParam();
+    //     try {
+    //         String strPesaParamType = "OTHER_DETAILS/CUSTOM_PARAMETERS/PAYMENT_CHANNELS";
+    //
+    //         switch (thePesaParamType) {
+    //             case MPESA_B2C: {
+    //                 strPesaParamType += "/SAFARICOM/MPESA_B2C";
+    //                 break;
+    //             }
+    //             case MPESA_C2B: {
+    //                 strPesaParamType += "/SAFARICOM/MPESA_C2B";
+    //                 break;
+    //             }
+    //             case MPESA_B2B: {
+    //                 strPesaParamType += "/SAFARICOM/MPESA_B2B";
+    //                 break;
+    //             }
+    //             case FAMILY_BANK_PESALINK: {
+    //                 strPesaParamType += "/FAMILY_BANK/PESALINK";
+    //                 break;
+    //             }
+    //             case AIRTIME: {
+    //                 strPesaParamType += "/GLOBAL/AIRTIME";
+    //                 break;
+    //             }
+    //         }
+    //
+    //         String strProductId = MBankingAPI.getValueFromLocalParams(theApplicationType, strPesaParamType + "/PRODUCT_ID");
+    //         String strSenderIdentifier = MBankingAPI.getValueFromLocalParams(theApplicationType, strPesaParamType + "/SENDER_IDENTIFIER");
+    //         String strSenderAccount = MBankingAPI.getValueFromLocalParams(theApplicationType, strPesaParamType + "/SENDER_ACCOUNT");
+    //         String strSenderName = MBankingAPI.getValueFromLocalParams(theApplicationType, strPesaParamType + "/SENDER_NAME");
+    //
+    //         rVal.setProductId(strProductId);
+    //         rVal.setSenderIdentifier(strSenderIdentifier);
+    //         rVal.setSenderAccount(strSenderAccount);
+    //         rVal.setSenderName(strSenderName);
+    //     } catch (Exception e) {
+    //         System.err.println("PESADB.getPesaParam() ERROR : " + e.getMessage());
+    //     }
+    //     return rVal;
+    // }
+
+    public static PesaParam getPesaParam(MBankingConstants.ApplicationType theApplicationType, PESAAPIConstants.PESA_PARAM_TYPE thePesaParamType) {
         PesaParam rVal = new PesaParam();
         try {
             String strPesaParamType = "OTHER_DETAILS/CUSTOM_PARAMETERS/PAYMENT_CHANNELS";
@@ -959,7 +1002,7 @@ public class PESAAPI {
         PESA thePESA = new PESA();
 
         try {
-            PesaParam pesaParam = PESAAPI.getPesaParam(APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
 
             long lnProductID = Long.parseLong(pesaParam.getProductId());
             String strSender = pesaParam.getSenderIdentifier();
@@ -1058,7 +1101,7 @@ public class PESAAPI {
         PESA thePESA = new PESA();
 
         try {
-            PesaParam pesaParam = PESAAPI.getPesaParam(APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
 
             long lnProductID = Long.parseLong(pesaParam.getProductId());
             String strSender = pesaParam.getSenderIdentifier();

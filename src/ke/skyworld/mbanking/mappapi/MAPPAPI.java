@@ -24,6 +24,7 @@ import ke.skyworld.mbanking.mbankingapi.MBankingAPI;
 import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.pesaapi.APIConstants;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
+import ke.skyworld.mbanking.pesaapi.PESAAPIConstants;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
@@ -4029,7 +4030,7 @@ public class MAPPAPI {
 
                     String strDate = MBankingDB.getDBDateTime().trim();
 
-                    PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_B2C);
+                    PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2C);
 
                     long getProductID = Long.parseLong(pesaParam.getProductId());
                     String strSenderIdentifier = pesaParam.getSenderIdentifier();
@@ -4313,7 +4314,7 @@ public class MAPPAPI {
                     String strTransaction = "Airtime Request";
                     String strTransactionDescription = "Airtime Purchase by " + strRecipientMobileNumber;
 
-                    PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.AIRTIME);
+                    PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.AIRTIME);
 
                     long getProductID = Long.parseLong(pesaParam.getProductId());
 
@@ -4593,7 +4594,7 @@ public class MAPPAPI {
                     String strTransaction = "Bank Transfer Request";
                     String strTransactionDescription = "B2B Bank Transfer to " + strReceiverBankAccountNumber;
 
-                    PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_B2B);
+                    PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2B);
 
                     long getProductID = Long.parseLong(pesaParam.getProductId());
 
@@ -4780,7 +4781,7 @@ public class MAPPAPI {
         try {
             System.out.println(this.getClass().getSimpleName() + "." + new Object() {
             }.getClass().getEnclosingMethod().getName() + "()");
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
             String strSender = pesaParam.getSenderIdentifier();
             /*
             <MSG SESSION_ID='12234' ORG_ID='12' TYPE='MOBILE_BANKING' ACTION='DEPOSIT_MONEY' VERSION='1.01'>"+
@@ -4879,7 +4880,7 @@ public class MAPPAPI {
 
         try {
             System.out.println("loanRepayment");
-            PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+            PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
             String strSender = pesaParam.getSenderIdentifier();
             /*
             <MESSAGES DATETIME='2014-08-25 22:19:53.0' VERSION='1.01'>
@@ -6909,7 +6910,7 @@ public class MAPPAPI {
                     String strTransaction = "Utility Request";
                     String strTransactionDescription = "B2B Bill Payment to "+strPaybillName;
 
-                    PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, APIConstants.PESA_PARAM_TYPE.MPESA_B2B);
+                    PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, PESAAPIConstants.PESA_PARAM_TYPE.MPESA_B2B);
                     long getProductID = Long.parseLong(pesaParam.getProductId());
 
                     String strSenderIdentifier = pesaParam.getSenderIdentifier();
@@ -7131,8 +7132,8 @@ public class MAPPAPI {
                 }
             }
 
-            String strMinimum = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MAPP, strMAPPParamType + "/MIN_AMOUNT");
-            String strMaximum = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MAPP, strMAPPParamType + "/MAX_AMOUNT");
+            String strMinimum = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MAPP, strMAPPParamType + "/MIN_AMOUNT");
+            String strMaximum = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MAPP, strMAPPParamType + "/MAX_AMOUNT");
 
             rVal.setMinimum(strMinimum);
             rVal.setMaximum(strMaximum);

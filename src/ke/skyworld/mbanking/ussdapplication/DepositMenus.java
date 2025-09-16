@@ -26,7 +26,7 @@ public interface DepositMenus {
         USSDResponse theUSSDResponse = null;
         USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
-        PesaParam pesaParam = PESAAPI.getPesaParam(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.PESA, ke.skyworld.mbanking.pesaapi.APIConstants.PESA_PARAM_TYPE.MPESA_C2B);
+        PesaParam pesaParam = PESAAPI.getPesaParam(MBankingConstants.ApplicationType.PESA, ke.skyworld.mbanking.pesaapi.PESAAPIConstants.PESA_PARAM_TYPE.MPESA_C2B);
         String strSender = pesaParam.getSenderIdentifier();
         String strHeader = "Payments and Deposit\n";
         
@@ -135,11 +135,13 @@ public interface DepositMenus {
 
                         if (validateAccountNumberWrapper.hasErrors()) {
 
-                            String strResponse = strHeader + "\n" + validateAccountNumberWrapper.getSingleRecord().getStringValue("display_message");
+                            // String strResponse = strHeader + "\n" + validateAccountNumberWrapper.getSingleRecord().getStringValue("display_message");
 
-                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
-                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.DEPOSIT_END, "NO", theArrayListUSSDSelectOption);
+                            // ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                            // USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                            // theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.DEPOSIT_END, "NO", theArrayListUSSDSelectOption);
+                            String strResponse = strHeader + "\n" + "{Invalid account number}\nEnter member's account number:\n";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.DEPOSIT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
 
                         } else {
 
@@ -183,12 +185,12 @@ public interface DepositMenus {
 
                         String strAccountNumber = "";
 
-                        if(strDepositOption.equals("OTHER_ACCOUNT")){
+                        if(strDepositOption.equals("MY_ACCOUNT")){
                             HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
                             strAccountNumber = hmAccount.get("ac_no");
                         }
 
-                        if(strDepositOption.equals("MY_ACCOUNT")){
+                        if(strDepositOption.equals("OTHER_ACCOUNT")){
                             strAccountNumber = strAccount;
                         }
 
@@ -228,8 +230,17 @@ public interface DepositMenus {
                             String strResponse;
 
                             String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_ACCOUNT.name());
-                            HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
-                            String strAccountNumber = hmAccount.get("ac_no");
+                            String strDepositOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_OPTION.name());
+                            String strAccountNumber = "";
+
+                            if(strDepositOption.equals("OTHER_ACCOUNT")){
+                                strAccountNumber = strAccount;
+                            }
+
+                            if(strDepositOption.equals("MY_ACCOUNT")){
+                                HashMap<String, String> hmAccount = Utils.toHashMap(strAccount);
+                                strAccountNumber = hmAccount.get("ac_no");
+                            }
 
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.DEPOSIT_AMOUNT.name());
 
@@ -246,9 +257,10 @@ public interface DepositMenus {
 
                                 String strReference = strReceiver;
 
+                                String finalStrAccountNumber = strAccountNumber;
                                 Thread worker = new Thread(() -> {
                                     PESAAPI thePESAAPI = new PESAAPI();
-                                    thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, strAccountNumber, "KES", lnAmount, "ACCOUNT_DEPOSIT", strReference, "USSD", "MBANKING", strTraceID, strSessionID);
+                                    thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, finalStrAccountNumber, "KES", lnAmount, "ACCOUNT_DEPOSIT", strReference, "USSD", "MBANKING", strTraceID, strSessionID);
                                 });
                                 worker.start();
                             } else {

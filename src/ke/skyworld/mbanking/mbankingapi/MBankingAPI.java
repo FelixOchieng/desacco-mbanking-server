@@ -7,6 +7,8 @@ import ke.co.skyworld.smp.utility_items.enums.ReturnValue;
 import ke.co.skyworld.smp.utility_items.logging.Log;
 import ke.co.skyworld.smp.utility_items.logging.LoggerConfiguration;
 import ke.co.skyworld.smp.utility_items.security.CryptoInit;
+import ke.skyworld.lib.mbanking.core.MBankingConstants;
+import ke.skyworld.lib.mbanking.core.SPManagerInterface;
 import ke.skyworld.lib.mbanking.mapp.MAPPLocalParameters;
 import ke.skyworld.lib.mbanking.msg.MSGConstants;
 import ke.skyworld.lib.mbanking.msg.MSGLocalParameters;
@@ -123,18 +125,45 @@ public class MBankingAPI {
         }
     }
 
-    public static String getValueFromLocalParams(APIConstants.APPLICATION_TYPE theApplicationType, String thePath) {
+    // public static String getValueFromLocalParams(APIConstants.APPLICATION_TYPE theApplicationType, String thePath) {
+    //
+    //     String rVal = "";
+    //     try {
+    //         String strConfigXML = "";
+    //         if (theApplicationType == APIConstants.APPLICATION_TYPE.PESA) {
+    //             strConfigXML = PESALocalParameters.getClientXMLParameters();
+    //         } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MSG) {
+    //             strConfigXML = MSGLocalParameters.getClientXMLParameters();
+    //         } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MAPP) {
+    //             strConfigXML = MAPPLocalParameters.getClientXMLParameters();
+    //         } else if (theApplicationType == APIConstants.APPLICATION_TYPE.USSD) {
+    //             strConfigXML = USSDLocalParameters.getClientXMLParameters();
+    //         }
+    //
+    //         InputSource source = new InputSource(new StringReader(strConfigXML));
+    //         DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
+    //         DocumentBuilder builder = builderFactory.newDocumentBuilder();
+    //         Document xmlDocument = builder.parse(source);
+    //         XPath configXPath = XPathFactory.newInstance().newXPath();
+    //
+    //         rVal = configXPath.evaluate(thePath, xmlDocument, XPathConstants.STRING).toString();
+    //     } catch (Exception e) {
+    //         System.err.println("MBankingAPI.getValueFromLocalParams() ERROR : " + e.getMessage());
+    //     }
+    //     return rVal;
+    // }
 
+    public static String getValueFromLocalParams(MBankingConstants.ApplicationType theApplicationType, String thePath) {
         String rVal = "";
         try {
             String strConfigXML = "";
-            if (theApplicationType == APIConstants.APPLICATION_TYPE.PESA) {
+            if (theApplicationType == MBankingConstants.ApplicationType.PESA) {
                 strConfigXML = PESALocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MSG) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.MSG) {
                 strConfigXML = MSGLocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MAPP) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.MAPP) {
                 strConfigXML = MAPPLocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.USSD) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.USSD) {
                 strConfigXML = USSDLocalParameters.getClientXMLParameters();
             }
 
@@ -181,8 +210,8 @@ public class MBankingAPI {
     public static void processSendMSG(String theReceiverType, String theReceiver, String theMSG, String theCategory) {
         try {
             try {
-                String strProductID = MBankingAPI.getValueFromLocalParams(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID");
-                String strSender = MBankingAPI.getValueFromLocalParams(APIConstants.APPLICATION_TYPE.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
+                String strProductID = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/PRODUCT_ID");
+                String strSender = MBankingAPI.getValueFromLocalParams(MBankingConstants.ApplicationType.MSG, "OTHER_DETAILS/CUSTOM_PARAMETERS/SMS/MT/SENDER");
                 long lnMSGProductId = Long.parseLong(strProductID);
                 String strOriginatorID = UUID.randomUUID().toString();
 
