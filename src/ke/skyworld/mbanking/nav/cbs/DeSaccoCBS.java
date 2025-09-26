@@ -609,6 +609,107 @@ public class DeSaccoCBS {
         return sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
     }
 
+    public static TransactionWrapper<FlexicoreArrayList> getATMCards(String theIdentifierType, String theIdentifier) {
+
+        String strRequestId = UUID.randomUUID().toString();
+
+
+
+        String strAction = "GET_ATM_CARDS";
+
+        FlexicoreHashMap requestBody = new FlexicoreHashMap()
+                .putValue("action", strAction)
+                .putValue("api_request_id", strRequestId)
+                .putValue("payload", new FlexicoreHashMap()
+                        .putValue("identifier_type", theIdentifierType)
+                        .putValue("identifier", theIdentifier)
+                );
+
+        TransactionWrapper<FlexicoreArrayList> resultWrapper = new TransactionWrapper<>();
+
+        TransactionWrapper<FlexicoreHashMap> apiResponseWrapper = sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
+
+        if (apiResponseWrapper.hasErrors()) {
+            resultWrapper.copyFrom(apiResponseWrapper);
+            return resultWrapper;
+        }
+
+        FlexicoreHashMap apiResponseMap = apiResponseWrapper.getSingleRecord();
+
+        String requestStatus = apiResponseMap.getStringValue("request_status");
+
+        if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+
+        FlexicoreArrayList customerATMCards = apiResponseMap.getFlexicoreArrayList("response_payload");
+
+        if (customerATMCards == null || customerATMCards.isEmpty()) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+        resultWrapper.setData(customerATMCards);
+        return resultWrapper;
+    }
+
+    public static TransactionWrapper<FlexicoreHashMap> delinkATMCards(String theIdentifierType, String theIdentifier, String theCardID, String theDelinkReason) {
+
+        String strRequestId = UUID.randomUUID().toString();
+
+
+
+        String strAction = "DEACTIVATE_ATM_CARD";
+
+        FlexicoreHashMap requestBody = new FlexicoreHashMap()
+                .putValue("action", strAction)
+                .putValue("api_request_id", strRequestId)
+                .putValue("payload", new FlexicoreHashMap()
+                        .putValue("identifier_type", theIdentifierType)
+                        .putValue("identifier", theIdentifier)
+                        .putValue("card_id", theCardID)
+                        .putValue("delink_reason", theDelinkReason)
+                );
+
+        TransactionWrapper<FlexicoreArrayList> resultWrapper = new TransactionWrapper<>();
+
+//        TransactionWrapper<FlexicoreHashMap> apiResponseWrapper = sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
+
+        return  sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
+
+        /*if (apiResponseWrapper.hasErrors()) {
+            resultWrapper.copyFrom(apiResponseWrapper);
+            return resultWrapper;
+        }
+
+        FlexicoreHashMap apiResponseMap = apiResponseWrapper.getSingleRecord();
+
+        String requestStatus = apiResponseMap.getStringValue("status");
+
+        if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+
+        String requestStatusDescription = apiResponseMap.getStringValue("status_description");
+
+
+
+
+        FlexicoreArrayList customerATMCards = apiResponseMap.getFlexicoreArrayList("status_description");
+
+        if (customerATMCards == null || customerATMCards.isEmpty()) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+        resultWrapper.setData(customerATMCards);
+        return resultWrapper;*/
+    }
+
     public static TransactionWrapper<FlexicoreHashMap> loanPaymentViaSavings(
             String theIdentifierType,
             String theIdentifier,
@@ -622,8 +723,6 @@ public class DeSaccoCBS {
             String theSourceApplication) {
 
         String strRequestId = UUID.randomUUID().toString();
-
-        
 
         String strAction = "IFT_LOAN_REPAYMENT";
 
@@ -788,12 +887,9 @@ public class DeSaccoCBS {
 
     public static TransactionWrapper<FlexicoreHashMap> checkLoanLimit(String theIdentifierType,
                                                                       String theIdentifier,
-                                                                      String theLoanTypeId,
-                                                                      String theLoanDuration) {
+                                                                      String theLoanTypeId) {
 
         String strRequestId = UUID.randomUUID().toString();
-
-        
 
         String strAction = "CHECK_LOAN_LIMIT";
 
@@ -806,7 +902,6 @@ public class DeSaccoCBS {
                         .putValue("identifier", theIdentifier)
                         .putValue("loan_type_id", theLoanTypeId)
                         .putValue("transaction_date_time", DateTime.getCurrentDateTime("yyyy-MM-dd HH:mm:ss"))
-                        .putValue("installments", theLoanDuration)
                 );
 
         return sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
@@ -866,15 +961,10 @@ public class DeSaccoCBS {
                                                                        String theSourceReference,
                                                                        String theRequestApplication,
                                                                        String theTransactionDateTime,
-                                                                       String theSectorCode,
-                                                                       String theSubSectorCode,
-                                                                       String thePurposeCode,
-                                                                       String theLoanDuration
+                                                                       String theMobileLoanPurpose
     ) {
 
         String strRequestId = UUID.randomUUID().toString();
-
-        
 
         String strAction = "LOAN_APPLICATION";
 
@@ -890,10 +980,7 @@ public class DeSaccoCBS {
                         .putValue("source_reference", theSourceReference)
                         .putValue("request_application", theRequestApplication)
                         .putValue("transaction_date_time", theTransactionDateTime)
-                        .putValue("sector", Integer.parseInt(theSectorCode))
-                        .putValue("sub_sector", Integer.parseInt(theSubSectorCode))
-                        .putValue("mobile_loan_purpose", Integer.parseInt(thePurposeCode))
-                        .putValue("installments", theLoanDuration)
+                        .putValue("mobile_loan_purpose", theMobileLoanPurpose)
                 );
 
         return sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
@@ -945,7 +1032,6 @@ public class DeSaccoCBS {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        
 
         String strAction = "LOAN_BALANCE_ENQUIRY";
 
@@ -966,9 +1052,6 @@ public class DeSaccoCBS {
     public static TransactionWrapper<FlexicoreArrayList> getLoanTypes(String theIdentifierType, String theIdentifier) {
 
         String strRequestId = UUID.randomUUID().toString();
-
-
-        
 
         String strAction = "GET_LOAN_TYPES";
 
@@ -1152,8 +1235,14 @@ public class DeSaccoCBS {
         FlexicoreHashMap updateMap = new FlexicoreHashMap();
         updateMap.putValue("/Envelope/Body/HandleRequest/request", theRequestJSON);
 
-
         String theRequestBody = XmlUtils.updateXMLTags(document, updateMap);
+
+        /*theRequestBody =  theRequestBody.replace("254790491947", "254712576168");
+        theRequestBody =  theRequestBody.replace("254717650883", "254712576168");
+        theRequestBody =  theRequestBody.replace("108673-03002", "21774-03857");*/
+
+        /*theRequestBody =  theRequestBody.replace("254790491947", "254712576168");
+        theRequestBody =  theRequestBody.replace("108673-03002", "21774-03857");*/
 
         TransactionWrapper<FlexicoreHashMap> resultWrapper = new TransactionWrapper<>();
 
@@ -1910,11 +1999,12 @@ public class DeSaccoCBS {
         return sendSoapRequest(strIdentifierType, strIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
     }
 
-    public static TransactionWrapper<FlexicoreHashMap> getLoanPurposes(String theIdentifierType, String theIdentifier) {
+
+    public static TransactionWrapper<FlexicoreArrayList> getLoanPurposes(String theIdentifierType, String theIdentifier) {
 
         String strRequestId = UUID.randomUUID().toString();
 
-        String strAction = "GET_LOAN_SECTOR";
+        String strAction = "GET_LOAN_PURPOSES";
 
         FlexicoreHashMap requestBody = new FlexicoreHashMap()
                 .putValue("action", strAction)
@@ -1922,10 +2012,36 @@ public class DeSaccoCBS {
                 .putValue("payload", new FlexicoreHashMap()
                         .putValue("identifier_type", theIdentifierType)
                         .putValue("identifier", theIdentifier)
-                        .putValue("transaction_date_time", DateTime.getCurrentDateTime("yyyy-MM-dd HH:mm:ss"))
                 );
 
-        return sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
+        TransactionWrapper<FlexicoreArrayList> resultWrapper = new TransactionWrapper<>();
+
+        TransactionWrapper<FlexicoreHashMap> apiResponseWrapper = sendSoapRequest(theIdentifierType, theIdentifier, strRequestId, Converter.toJson(requestBody), strAction);
+
+        if (apiResponseWrapper.hasErrors()) {
+            resultWrapper.copyFrom(apiResponseWrapper);
+            return resultWrapper;
+        }
+
+        FlexicoreHashMap apiResponseMap = apiResponseWrapper.getSingleRecord();
+
+        String requestStatus = apiResponseMap.getStringValue("request_status");
+
+        if (!requestStatus.equalsIgnoreCase("SUCCESS")) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+
+        FlexicoreArrayList loanPurposes = apiResponseMap.getFlexicoreArrayList("response_payload");
+
+        if (loanPurposes == null || loanPurposes.isEmpty()) {
+            resultWrapper.setHasErrors(true);
+            resultWrapper.setStatusCode(HttpsURLConnection.HTTP_NOT_FOUND);
+            return resultWrapper;
+        }
+        resultWrapper.setData(loanPurposes);
+        return resultWrapper;
     }
 
     public static TransactionWrapper<FlexicoreHashMap> checkGuarantorCapability(String strIdentifierType, String strIdentifier, String strLoanSerialNumber, double dblProposedAmountToGuarantee, String guarantorshipStatus, String strRequestDate) {

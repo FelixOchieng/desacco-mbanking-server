@@ -11,6 +11,7 @@ import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
@@ -34,6 +35,24 @@ public interface WithdrawalMenus {
             String strUSSDDataType = theUSSDRequest.getUSSDDataType();
             switch (theParam) {
                 case "MENU": {
+
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.WITHDRAWAL_VIA_MPESA);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption,   "Withdraw to M-Pesa\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+
+                    } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.WITHDRAWAL)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption,  "Withdraw to M-Pesa\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.WITHDRAWAL_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
                     String strHeader = "Withdraw to M-Pesa\nSelect Source Account\n";
                     theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.WITHDRAWAL_ACCOUNT, AppConstants.USSDDataType.WITHDRAWAL_END);
                     break;
@@ -450,7 +469,7 @@ public interface WithdrawalMenus {
         return theUSSDResponse;
     }
 
-    static APIUtils.ServiceProviderAccount getProviderAccountCode(String theSPProviderAccount){
+   /* static APIUtils.ServiceProviderAccount getProviderAccountCode(String theSPProviderAccount){
         APIUtils.ServiceProviderAccount rVal = null;
         try {
             LinkedList<APIUtils.ServiceProviderAccount> llSPAAccounts = APIUtils.getSPAccounts("SHORT_CODE");
@@ -464,7 +483,7 @@ public interface WithdrawalMenus {
             System.err.println("theAppMenus.getProviderAccountCode() ERROR : " + e.getMessage());
         }
         return rVal;
-    }
+    }*/
 
     public default USSDResponse displayMenu_ActivateWithdrawal(USSDRequest theUSSDRequest, String theParam) {
         USSDResponse theUSSDResponse = null;

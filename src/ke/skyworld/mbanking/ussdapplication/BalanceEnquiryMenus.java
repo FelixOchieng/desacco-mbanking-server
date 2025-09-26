@@ -8,6 +8,7 @@ import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
 import ke.skyworld.lib.mbanking.utils.Utils;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
@@ -27,6 +28,25 @@ public interface BalanceEnquiryMenus {
 
             switch (theParam) {
                 case "MENU": {
+
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.BALANCE_ENQUIRY);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Balance Enquiry\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+
+                    } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.BALANCE_ENQUIRY)) {
+
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Balance Enquiry\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
+
                     strHeader = "Balance Enquiry";
                     theUSSDResponse = GeneralMenus.displayMenu_AccountTypes(theUSSDRequest, theParam, strHeader + "\nSelect a category", AppConstants.USSDDataType.MY_ACCOUNT_BALANCE_ACCOUNT_TYPE);
                     break;

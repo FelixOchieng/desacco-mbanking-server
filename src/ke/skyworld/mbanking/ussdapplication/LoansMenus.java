@@ -1,8 +1,15 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.utility_items.DateTime;
+import ke.co.skyworld.smp.utility_items.Misc;
+import ke.co.skyworld.smp.utility_items.constants.StringRefs;
+import ke.co.skyworld.smp.utility_items.data_formatting.Converter;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingUtils;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
+import ke.skyworld.lib.mbanking.utils.InMemoryCache;
 import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
@@ -14,6 +21,7 @@ import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 import ke.skyworld.lib.mbanking.utils.Utils;
+import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import org.w3c.dom.NodeList;
 
 import java.util.*;
@@ -91,7 +99,7 @@ public interface LoansMenus {
         return theUSSDResponse;
     }
 
-    default USSDResponse getLoansMenus(USSDRequest theUSSDRequest, String theHeader) {
+    default USSDResponse getLoansMenus_PREV(USSDRequest theUSSDRequest, String theHeader) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
 
@@ -120,18 +128,19 @@ public interface LoansMenus {
              /* llMenus.add(new APIUtils.MenuItem("Add / Remove Loan Guarantors", "LOAN_GUARANTORS"));
                 llMenus.add(new APIUtils.MenuItem("Loans Guaranteed", "LOANS_GUARANTEED"));*/
 
-                if (blMemberHasLoansPendingGuarantorship) {
+                /*if (blMemberHasLoansPendingGuarantorship) {
                     llMenus.add(new APIUtils.MenuItem("T&Cs", "LOANS_TERMS_AND_CONDITIONS"));
                 } else {
                     llMenus.add(new APIUtils.MenuItem("T&Cs", "LOANS_TERMS_AND_CONDITIONS"));
-                }
+                }*/
 
                 int i = 1;
                 for (APIUtils.MenuItem miMenu : llMenus) {
                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(i), miMenu.getValue(), i + ": " + miMenu.getTitle());
                     i++;
                 }
-            } else {
+            }
+            else {
                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "\n" + strAccessMessage + "\n");
             }
             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_MENU, "NO", theArrayListUSSDSelectOption);
@@ -144,14 +153,62 @@ public interface LoansMenus {
         return theUSSDResponse;
     }
 
-    default USSDResponse displayMenu_CheckLoanQualification(USSDRequest theUSSDRequest, String theParam) {
+    default USSDResponse getLoansMenus(USSDRequest theUSSDRequest, String theHeader) {
+        USSDResponse theUSSDResponse = null;
+        AppMenus theAppMenus = new AppMenus();
+
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+            LinkedList<APIUtils.MenuItem> llMenus = new LinkedList<>();
+            llMenus.add(new APIUtils.MenuItem("Check Loan Limit", "CHECK_QUALIFICATION"));
+            llMenus.add(new APIUtils.MenuItem("Apply Loan", "LOAN_APPLICATION"));
+            llMenus.add(new APIUtils.MenuItem("Pay Loan", "LOAN_REPAYMENT"));
+            llMenus.add(new APIUtils.MenuItem("Loan Balance", "LOAN_BALANCE"));
+            llMenus.add(new APIUtils.MenuItem("Loan Mini-Statement", "LOAN_MINI_STATEMENT"));
+            llMenus.add(new APIUtils.MenuItem("T&Cs", "LOANS_TERMS_AND_CONDITIONS"));
+
+            int i = 1;
+            for (APIUtils.MenuItem miMenu : llMenus) {
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(i), miMenu.getValue(), i + ": " + miMenu.getTitle());
+                i++;
+            }
+
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_MENU, "NO", theArrayListUSSDSelectOption);
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.getLoansMenus() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+        }
+        return theUSSDResponse;
+    }
+
+    default USSDResponse displayMenu_CheckLoanQualification_v1(USSDRequest theUSSDRequest, String theParam) {
         USSDResponse theUSSDResponse = null;
         final USSDAPI theUSSDAPI = new USSDAPI();
         AppMenus theAppMenus = new AppMenus();
         try {
+
             switch (theParam) {
                 case "MENU": {
                     String strHeader = "Check Loan Limit";
+
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.LOAN_QUALIFICATION);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.LOAN_QUALIFICATION)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
                     strHeader += "\nSelect an account";
                     theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
                     break;
@@ -161,7 +218,7 @@ public interface LoansMenus {
                     String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT.name());
                     if (!Objects.equals(strAccount, "")) {
                         strHeader += "\nSelect loan type";
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, strAccount);
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
                     } else {
                         strHeader += "\n{Select a valid account}\n";
                         theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
@@ -176,8 +233,18 @@ public interface LoansMenus {
                         String strResponse = "Dear member, your Loan Qualification request has been received successfully. Please wait shortly as it's being processed.";
 
                         Thread worker = new Thread(() -> {
-                            APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.checkLoanQualification(theUSSDRequest);
-                            System.out.println("checkLoanQualification: " + transactionReturnVal.getValue());
+
+                            TransactionWrapper<FlexicoreHashMap> loanApplicationWrapper = theUSSDAPI.loanQualificationCheck(theUSSDRequest);
+                            FlexicoreHashMap loanApplicationMap = loanApplicationWrapper.getSingleRecord();
+
+                            if (loanApplicationWrapper.hasErrors()) {
+                                String strErrorMessage = loanApplicationMap.getValue("cbs_api_return_val").toString() + "\n";
+                                strErrorMessage += loanApplicationMap.getStringValue("display_message");
+                                System.err.println("LoansMenus.displayMenu_CheckLoanQualification() - Response " + strErrorMessage);
+                            }
+
+                            /*APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.loanQualificationCheck(theUSSDRequest);
+                            System.out.println("checkLoanQualification: " + transactionReturnVal.getValue());*/
                         });
                         worker.start();
 
@@ -237,6 +304,118 @@ public interface LoansMenus {
         return theUSSDResponse;
     }
 
+    default USSDResponse displayMenu_CheckLoanQualification(USSDRequest theUSSDRequest, String theParam) {
+        USSDResponse theUSSDResponse = null;
+        final USSDAPI theUSSDAPI = new USSDAPI();
+        AppMenus theAppMenus = new AppMenus();
+        try {
+
+            switch (theParam) {
+                case "MENU": {
+                    String strHeader = "Check Loan Limit";
+
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.LOAN_QUALIFICATION);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.LOAN_QUALIFICATION)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
+                    strHeader += "\nSelect loan type";
+                    theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
+                    break;
+                }
+                case "TYPE": {
+                    String strLoanQualificationType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE.name());
+
+                    if (!Objects.equals(strLoanQualificationType, "")) {
+
+                        String strResponse = "Dear member, your Loan Qualification request has been received successfully. Please wait shortly as it's being processed.";
+
+                        Thread worker = new Thread(() -> {
+
+                            TransactionWrapper<FlexicoreHashMap> loanApplicationWrapper = theUSSDAPI.loanQualificationCheck(theUSSDRequest);
+                            FlexicoreHashMap loanApplicationMap = loanApplicationWrapper.getSingleRecord();
+
+                            if (loanApplicationWrapper.hasErrors()) {
+                                String strErrorMessage = loanApplicationMap.getValue("cbs_api_return_val").toString() + "\n";
+                                strErrorMessage += loanApplicationMap.getStringValue("display_message");
+                                System.err.println("LoansMenus.displayMenu_CheckLoanQualification() - Response " + strErrorMessage);
+                            }
+
+                            /*APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.loanQualificationCheck(theUSSDRequest);
+                            System.out.println("checkLoanQualification: " + transactionReturnVal.getValue());*/
+                        });
+                        worker.start();
+
+                        /*APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.checkLoanQualification(theUSSDRequest);
+
+                        String strResponse ="";
+
+                        if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
+                            strResponse = "Dear member, your Loan Qualification request has been received successfully. Please wait shortly as it's being processed.";
+                        }else {
+
+
+                            switch (transactionReturnVal) {
+                                case INCORRECT_PIN: {
+                                    strResponse = "Sorry the PIN provided is incorrect. Your Loan Qualification request CANNOT be completed.\n";
+                                    break;
+                                }
+                                case BLOCKED: {
+                                    strResponse = "Dear member, your account has been blocked. Your Loan Qualification request CANNOT be completed.\n";
+                                    break;
+                                }
+                                default: {
+                                    strResponse = "Sorry, your Loan Qualification request CANNOT be completed at the moment. Please try again later.\n";
+                                    break;
+                                }
+                            }
+                        }
+                        */
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+                    } else {
+                       /* String strHeader = "Check Loan Limit\n{Select a valid menu}";
+                        String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_QUALIFICATION_ACCOUNT.name());
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, strLoanAccount);
+*/
+
+                       String strHeader = "Check Loan Limit\n{Select a valid menu}\nSelect loan type";
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_QUALIFICATION_TYPE, AppConstants.USSDDataType.LOAN_QUALIFICATION_END);
+                    }
+
+                    break;
+                }
+                default: {
+                    System.err.println("theAppMenus.displayMenu_CheckLoanQualification() UNKNOWN PARAM ERROR : theParam = " + theParam);
+
+                    String strResponse = "Check Loan Limit\n{Sorry, an error has occurred while processing your request}";
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_QUALIFICATION_END, "NO", theArrayListUSSDSelectOption);
+
+                    break;
+                }
+            }
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_CheckLoanQualification() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+        }
+        return theUSSDResponse;
+    }
+
     default USSDResponse displayMenu_LoanApplication(USSDRequest theUSSDRequest, String theParam, String theLoanType) {
         USSDResponse theUSSDResponse = null;
         final USSDAPI theUSSDAPI = new USSDAPI();
@@ -245,93 +424,52 @@ public interface LoansMenus {
             switch (theParam) {
                 case "MENU": {
                     String strHeader = "Loan Application";
-                    strHeader += "\nSelect an account";
-                    theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_APPLICATION_END);
-                    break;
-                }
-                case "ACCOUNT": {
-                    String strHeader = "Loan Application";
-                    String strAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                    if (!Objects.equals(strAccount, "")) {
-                        strHeader += "\nSelect loan type";
-                        String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, strLoanAccount);
-                    } else {
-                        strHeader += "\n{Select a valid account}\n";
-                        theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT, AppConstants.USSDDataType.LOAN_APPLICATION_END);
-                    }
-                    break;
-                }
-                case "CATEGORY": {
-                    String strLoanApplicationCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY.name());
 
-                    if (!strLoanApplicationCategory.equals("")) {
-                        String strResponse = "Loan Application\nSelect Loan:";
-                        String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, strLoanApplicationCategory, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, strLoanAccount);
-                    } else {
-                        String strHeader = "Loan Application\n{Select a valid menu}";
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY);
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.LOAN_APPLICATION);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Loan Application\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+
+                    }else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.LOAN_APPLICATION)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Loan Application\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
                     }
-                    break;
+
+                    strHeader += "\nSelect loan type";
+                    theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
+
+                     break;
                 }
+
                 case "TYPE": {
-                    String strLoanApplicationCategory = "M-Boosta";
 
-                    String strLoanApplicationType = theLoanType;
-                    if (strLoanApplicationType != null) {
-                        if (!strLoanApplicationType.equals("")) {
-                            String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                            LinkedList<String> loanTypes = theUSSDAPI.getLoanTypes(theUSSDRequest, "ALL", strLoanAccount);
+                    String strLoanApplicationType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
 
-                            if (loanTypes != null) {
-                                for (String loanType : loanTypes) {
-                                    String strCode = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Code", loanType);
+                    if (strLoanApplicationType.length() > 0) {
 
-                                    if (strCode.equals(strLoanApplicationType)) {
-                                        APIUtils.setLoanTypeInMemory(strCode, loanType, theUSSDRequest);
-                                        strLoanApplicationType = strCode;
-                                        break;
-                                    }
-                                }
-                            }
-                        } else {
-                            strLoanApplicationType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
-                            if (strLoanApplicationType == null) {
-                                strLoanApplicationType = theLoanType;
-                            }
-                            strLoanApplicationCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY.name());
-                            if (strLoanApplicationCategory == null) {
-                                strLoanApplicationCategory = "M-Boosta Loan ";
-                            }
-                        }
-                    } else {
-                        strLoanApplicationType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
-                        if (strLoanApplicationType == null) {
-                            strLoanApplicationType = theLoanType;
-                        }
-                        strLoanApplicationCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY.name());
-                        if (strLoanApplicationCategory == null) {
-                            strLoanApplicationCategory = "M-Boosta Loan ";
-                        }
-                    }
+                        String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                        HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                        String strLoanTypeID = hmLoanType.get("id");
+                        String strLoanTypeName = hmLoanType.get("name");
+                        String strLoanTypeLabel = hmLoanType.get("label");
 
-                    String strLoanTypeXML = APIUtils.getLoanTypeFromMemory(strLoanApplicationType, theUSSDRequest);
-                    String strLoanID = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Code", strLoanTypeXML);
-                    String strLoanName = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Type", strLoanTypeXML);
-
-                    if (!strLoanApplicationType.equals("")) {
-                        String strResponse = strLoanName + " Application\nDo you accept the terms and conditions for this loan?";
+                        String strResponse = strLoanTypeName + " Application\nDo you accept the terms and conditions for this loan?";
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "ACCEPT", "1: Accept T&Cs");
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "REJECT", "2: Reject T&Cs");
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "3", "ACCESS", "3: Access Loan T&Cs");
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_TNCS, "NO", theArrayListUSSDSelectOption);
-                    } else {
+
+                    }else{
                         String strHeader = "Loan Application\n{Select a valid menu}";
-                        String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, strLoanApplicationCategory, strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, strLoanAccount);
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
                     }
 
                     break;
@@ -341,39 +479,88 @@ public interface LoansMenus {
 
                     if (!strLoanApplicationTNCs.equals("")) {
                         if (strLoanApplicationTNCs.equals("ACCEPT")) {
-                            String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
-                            if (strLoanType == null) {
-                                strLoanType = theLoanType;
-                            }
+                            String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                            HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                            String strLoanTypeID = hmLoanType.get("id");
+                            String strLoanTypeName = hmLoanType.get("name");
+                            String strLoanTypeLabel = hmLoanType.get("label");
+                            String strLoanApplicationMinimum = hmLoanType.get("min");
+                            String strLoanTypeMax = hmLoanType.get("max");
 
-                            String strLoanTypeXML = APIUtils.getLoanTypeFromMemory(strLoanType, theUSSDRequest);
-                            String strLoanID = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Code", strLoanTypeXML);
-                            String strLoanName = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Type", strLoanTypeXML);
-                            String strInstallmentsType = MBankingXMLFactory.getXPathValueFromXMLString("/Product/InstallmentsType", strLoanTypeXML);
-                            String strUserCanApply = MBankingXMLFactory.getXPathValueFromXMLString("/Product/UserCanApply", strLoanTypeXML);
+                            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+                            String strSIMID = String.valueOf(theUSSDRequest.getUSSDIMSI());
 
-                            APIUtils.LoanAmountLimits loanAmountLimits = APIUtils.getLoanInstallmentAmounts(null, strLoanTypeXML);
+                            TransactionWrapper<FlexicoreHashMap> loanQualificationWrapper = CBSAPI.checkLoanLimit(strMobileNumber,
+                                    "MSISDN", strMobileNumber, "IMSI", strSIMID, strLoanTypeID);
 
-                            if (loanAmountLimits.getMaximum().equals("0") || strUserCanApply.equals("FALSE")) {
-                                String strLoanMessage = MBankingXMLFactory.getXPathValueFromXMLString("/Product/Message", strLoanTypeXML);
-                                String strResponse = strLoanName + " Application\n" + strLoanMessage + ".\n";
+                            FlexicoreHashMap loanQualificationMap = loanQualificationWrapper.getSingleRecord();
 
-                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+                            if (loanQualificationWrapper.hasErrors()) {
+
+                                USSDAPIConstants.StandardReturnVal returnVal = loanQualificationMap.getValue("cbs_api_return_val");
+                                USSDAPIConstants.Condition condition = loanQualificationMap.getValue("end_session");
+
+                                String strResponse = strLoanTypeLabel + " Application\n" + loanQualificationMap.getStringValue("display_message");
+
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
-                            } else {
-                                if (strInstallmentsType.equals("PRESET")) {
-                                    String strResponse = strLoanName + " Application\nSelect duration (in months)";
-                                    theUSSDResponse = GeneralMenus.displayMenu_LoanInstallments(theUSSDRequest, theParam, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_INSTALLMENTS, strLoanTypeXML);
-                                } else if (strInstallmentsType.equals("INPUT")) {
-                                    String strResponse = strLoanName + " Application\nSelect duration (in months)";
-                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_INSTALLMENTS, USSDConstants.USSDInputType.STRING, "NO");
-                                } else {
-                                    String strMinimum = Utils.formatDouble(loanAmountLimits.getMinimum(), "#,###.##");
-                                    String strMaximum = Utils.formatDouble(loanAmountLimits.getMaximum(), "#,###.##");
 
-                                    String strResponse = strLoanName + " Application\nMinimum: KES " + strMinimum + "\nMaximum: KES " + strMaximum + "\nEnter amount:";
-                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            } else {
+
+                                //String strLoanApplicationMinimum = USSDAPI.getAmountLimitCustomParameters(MBankingConstants.ApplicationType.USSD, USSDAPIConstants.USSD_PARAM_TYPE.APPLY_LOAN).getMinimum();
+
+                                String strEligibleAmount = loanQualificationMap.getFlexicoreHashMap("payload").getStringValue("eligible_amount");
+
+                                double dblEligibleAmount = Double.parseDouble(strEligibleAmount);
+                                double dblMinimumApplicable = Double.parseDouble(strLoanApplicationMinimum);
+                                double dblMaximumApplicable = Double.parseDouble(strLoanTypeMax);
+
+                                double dblMaxCanApply = Math.min(dblEligibleAmount, dblMaximumApplicable);
+
+                                if (dblEligibleAmount < dblMinimumApplicable) {
+                                    String strResponse = strLoanTypeLabel + " Application\n Sorry, you are not eligible to apply for loan " + strLoanTypeLabel;
+
+                                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
+
+                                } else {
+                                    //check loan product type
+                          /*      if (strLoanRequiresInstallments.equalsIgnoreCase("true")) {
+                                    System.out.println("M-LOan here");
+                                    String strResponse = strLoanTypeLabel + " Application\nEnter installments between 1 and 6 months:";
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_DURATION, USSDConstants.USSDInputType.STRING, "NO");
+                                } else {*/
+
+                                    String strNarration = "(Min: KES " + Utils.formatDouble(strLoanApplicationMinimum, "#,##0.00") + "\nMax: KES " +
+                                            Utils.formatDouble(dblMaxCanApply, "#,##0.00") + ")";
+
+                                    String strResponse = strLoanTypeLabel + " Application\n"+strNarration+"\nEnter amount";
+
+                                    FlexicoreHashMap tmpLoanDetailsMap = new FlexicoreHashMap();
+
+                                    FlexicoreHashMap application_details = new FlexicoreHashMap();
+                                    application_details.putValue("minimum", strLoanApplicationMinimum);
+                                    application_details.putValue("maximum", dblMaxCanApply);
+                                    application_details.putValue("narration", strNarration);
+                                    application_details.putValue("application_type", "NEW_LOAN");
+                                    application_details.putValue("product_id", strLoanTypeID);
+
+                                    tmpLoanDetailsMap.putValue("mobile_number", String.valueOf(theUSSDRequest.getUSSDMobileNo()));
+                                    tmpLoanDetailsMap.putValue("application_details", Converter.toJson(application_details));
+                                    tmpLoanDetailsMap.putValue("date_created", DateTime.getCurrentDateTime());
+
+                                    TransactionWrapper<?> wrapper = theUSSDAPI.insertOrUpdateLoanDetails(tmpLoanDetailsMap, String.valueOf(theUSSDRequest.getUSSDMobileNo()));
+                                    if (wrapper.hasErrors()) {
+                                        strResponse = strLoanTypeLabel + " Application\nSorry, an error occurred while processing your request. Please try again later";
+
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
+                                    } else {
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                                    }
                                 }
                             }
                         } else if (strLoanApplicationTNCs.equals("REJECT")) {
@@ -387,22 +574,12 @@ public interface LoansMenus {
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader);
                             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
                         } else {
-                            String strLoanApplicationCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY.name());
-                            if (strLoanApplicationCategory == null) {
-                                strLoanApplicationCategory = "M-Boosta Loan ";
-                            }
                             String strHeader = "Loan Application\n{Select a valid menu}";
-                            String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                            theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, strLoanApplicationCategory, strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, strLoanAccount);
+                            theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
                         }
                     } else {
-                        String strLoanApplicationCategory = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CATEGORY.name());
-                        if (strLoanApplicationCategory == null) {
-                            strLoanApplicationCategory = "M-Boosta Loan ";
-                        }
                         String strHeader = "Loan Application\n{Select a valid menu}";
-                        String strLoanAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_ACCOUNT.name());
-                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, strLoanApplicationCategory, strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TNCS, strLoanAccount);
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanTypes(theUSSDRequest, "", strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_TYPE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
                     }
                     break;
                 }
@@ -479,7 +656,66 @@ public interface LoansMenus {
 
                     break;
                 }
+
                 case "AMOUNT": {
+                    String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+
+                    HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                    String strLoanTypeID = hmLoanType.get("id");
+                    String strLoanTypeCode = hmLoanType.get("code");
+                    String strLoanTypeName = hmLoanType.get("name");
+                    String strLoanTypeLabel = hmLoanType.get("label");
+
+                    /*String strLoanTypeMaxAmount = hmLoanType.get("max");
+                    String strLoanTypeMinAmount = hmLoanType.get("min");
+                    String strLoanTypeMaxDuration = hmLoanType.get("duration");
+                    String strLoanTypeInterest = hmLoanType.get("interest");*/
+
+                    TransactionWrapper<FlexicoreHashMap> wrapper = theUSSDAPI.getTMPLoanDetails(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
+                    FlexicoreHashMap tmpLoanDetails = wrapper.getSingleRecord();
+
+                    FlexicoreHashMap applicationDetailsMap = Misc.getBodyObjectWithGson(FlexicoreHashMap.class, tmpLoanDetails.getStringValue("application_details"), StringRefs.APPLICATION_JSON);
+
+                    String strLoanApplicationMinimum = applicationDetailsMap.getStringValue("minimum");
+                    String strLoanApplicationMaximum = applicationDetailsMap.getStringValue("maximum");
+
+                    String strNarration = applicationDetailsMap.getStringValue("narration");
+                    String strApplicationType = applicationDetailsMap.getStringValue("application_type");
+
+                    double dblLoanApplicationMinimum = Double.parseDouble(strLoanApplicationMinimum);
+                    double dblLoanApplicationMaximum = Double.parseDouble(strLoanApplicationMaximum);
+
+                    String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT.name());
+
+                    if (strAmount.matches("^[1-9][0-9]*$")) {
+
+                        String strResponse;
+                        String existingLoanAmount = "";
+                        double dblAmountEntered = Double.parseDouble(strAmount);
+                        if (dblAmountEntered < dblLoanApplicationMinimum) {
+                            strResponse = strLoanTypeLabel + " Application\n{MINIMUM amount is KES " + Utils.formatDouble(dblLoanApplicationMinimum, "#,##0.00") + "}\nEnter amount:";
+                            //strResponse = strLoanTypeLabel + " Application\n{MINIMUM amount is KES " + Utils.formatDouble(dblLoanApplicationMinimum, "#,##0.00") + "}\nEnter amount(Take Home):";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                        } else if (dblAmountEntered > dblLoanApplicationMaximum) {
+                            strResponse = strLoanTypeLabel + " Application\n{MAXIMUM amount is KES " + Utils.formatDouble(dblLoanApplicationMaximum, "#,##0.00") + "}\nEnter amount:";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                        }/*else{
+
+                            strResponse = strLoanTypeLabel + " Application\nEnter your PIN:";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_PIN, USSDConstants.USSDInputType.STRING, "NO");
+                        }*/else{
+                            strResponse = strLoanTypeLabel + " \nSelect Loan Purpose:";
+                            theUSSDResponse = GeneralMenus.displayMenu_LoanPurposes(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_PURPOSE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
+                        }
+
+                    } else {
+                        String strResponse = strLoanTypeLabel + " Application\n{Please enter a valid amount}\n"+strNarration+":";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                    }
+                    break;
+                }
+
+                /*case "AMOUNT": {
                     String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
                     if (strLoanType == null) {
                         strLoanType = theLoanType;
@@ -650,9 +886,86 @@ public interface LoansMenus {
                     }
 
                     break;
+                }*/
+
+                case "PURPOSE": {
+                    String strLoanApplicationPurpose = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_PURPOSE.name());
+
+                    if (strLoanApplicationPurpose.length() > 0) {
+                        String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                        HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                        String strLoanTypeLabel = hmLoanType.get("label");
+
+                        String strResponse = strLoanTypeLabel + " Application\nEnter your PIN:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_PIN, USSDConstants.USSDInputType.STRING, "NO");
+
+                    } else {
+                        String strHeader = "Loan Purpose\n{Select a valid menu}";
+                        theUSSDResponse = GeneralMenus.displayMenu_LoanPurposes(theUSSDRequest, strHeader, AppConstants.USSDDataType.LOAN_APPLICATION_PURPOSE, AppConstants.USSDDataType.LOAN_APPLICATION_END);
+                    }
+                    break;
                 }
+
+                case "PIN": {
+                    String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                    HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                    String strLoanTypeID = hmLoanType.get("id");
+                    String strLoanTypeCode = hmLoanType.get("code");
+                    String strLoanTypeName = hmLoanType.get("name");
+                    String strLoanTypeLabel = hmLoanType.get("label");
+                    /*String strLoanTypeMaxAmount = hmLoanType.get("max");
+                    String strLoanTypeMinAmount = hmLoanType.get("min");
+                    String strLoanTypeMaxDuration = hmLoanType.get("duration");
+                    String strLoanTypeInterest = hmLoanType.get("interest");*/
+
+                    /*double dblLoanTypeMinAmount = 0;
+                    double dblLoanTypeMaxAmount = 0;
+                    double dblLoanTypeMaxDuration = 0;
+                    double dblLoanTypeInterest = 0;*/
+
+                    /*try { dblLoanTypeMinAmount = Double.parseDouble(strLoanTypeMinAmount); }catch (Exception e){}
+                    try { dblLoanTypeMaxAmount = Double.parseDouble(strLoanTypeMaxAmount); }catch (Exception e){}
+                    try { dblLoanTypeMaxDuration = Double.parseDouble(strLoanTypeMaxDuration); }catch (Exception e){}
+                    try { dblLoanTypeInterest = Double.parseDouble(strLoanTypeInterest); }catch (Exception e){}*/
+
+                    String strLoginPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
+                    String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_PIN.name());
+
+                    if (strLoginPIN.equals(strPIN)) {
+                        String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT.name());
+
+                        String strMenuInfo = "";
+                        /*if(dblLoanTypeMaxDuration > 0){ strMenuInfo = strMenuInfo + "Duration: " + Utils.formatDouble(dblLoanTypeMaxDuration, "#,##0.00") + " month(s)\n";}
+                        if(dblLoanTypeInterest > 0){ strMenuInfo = strMenuInfo + "Interest : " + Utils.formatDouble(dblLoanTypeInterest, "#,##0.00") + "%\n";}*/
+
+                        String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                        TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.LOAN_APPLICATION.getValue(),
+                                Double.parseDouble(strAmount));
+
+                        String strCharge = "";
+                        if (chargesWrapper.hasErrors()) {
+                            strCharge = "";
+                        } else {
+                            strCharge = "\nCharge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
+                        }
+
+                        strAmount = Utils.formatDouble(strAmount, "#,##0.00");
+                        String strResponse = "Confirm " + strLoanTypeLabel + " Application\n" + strMenuInfo + "Amount Applied: KES " + strAmount + strCharge + "\n";
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
+
+                    } else {
+                        String strResponse = strLoanTypeLabel + " Application\n{Please enter correct PIN}\nEnter your PIN:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_APPLICATION_PIN, USSDConstants.USSDInputType.STRING, "NO");
+                    }
+
+                    break;
+                }
+
                 case "CONFIRMATION": {
-                    String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                    /*String strLoanType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
                     if (strLoanType == null) {
                         strLoanType = theLoanType;
                     }
@@ -720,28 +1033,64 @@ public interface LoansMenus {
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
 
+                    }*/
+
+                    String strLoanTypeDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_TYPE.name());
+                    HashMap<String, String> hmLoanType = Utils.toHashMap(strLoanTypeDetails);
+                    String strLoanTypeID = hmLoanType.get("id");
+                    String strLoanTypeCode = hmLoanType.get("code");
+                    String strLoanTypeName = hmLoanType.get("name");
+                    String strLoanTypeLabel = hmLoanType.get("label");
+                    /*String strLoanTypeMaxAmount = hmLoanType.get("max");
+                    String strLoanTypeMinAmount = hmLoanType.get("min");
+                    String strLoanTypeMaxDuration = hmLoanType.get("duration");
+                    String strLoanTypeInterest = hmLoanType.get("interest");*/
+
+
+                    String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_CONFIRMATION.name());
+                    if (strConfirmation.equalsIgnoreCase("YES")) {
+                        //String strResponse = "Dear member, your " + strLoanTypeLabel + " Application is being processed.\n";
+
+                        /*Thread worker = new Thread(() -> {
+                        });
+                        worker.start();*/
+
+                        TransactionWrapper<FlexicoreHashMap> loanApplicationWrapper = theUSSDAPI.loanApplication(theUSSDRequest);
+                        FlexicoreHashMap loanApplicationMap = loanApplicationWrapper.getSingleRecord();
+
+                        String strResponse = strLoanTypeLabel+ " Loan Application\n"+loanApplicationMap.getStringValue("display_message");
+
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
+
                     } else if (strConfirmation.equalsIgnoreCase("NO")) {
-                        String strResponse = "Dear member, your " + strLoanName + " Application request NOT confirmed. Loan Application request NOT COMPLETED.";
+                        String strResponse = "Dear member, your " + strLoanTypeLabel + " Application request NOT confirmed. Loan Application request NOT COMPLETED.";
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_END, "NO", theArrayListUSSDSelectOption);
                     } else {
-                        String strLoanInstallmentId = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_INSTALLMENTS.name());
 
-                        strLoanTypeXML = APIUtils.getLoanTypeFromMemory(strLoanType, theUSSDRequest);
-                        String strDuration = "";
-                        String strInstallmentsType = MBankingXMLFactory.getXPathValueFromXMLString("/Product/InstallmentsType", strLoanTypeXML);
+                        String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT.name());
 
-                        if (strInstallmentsType.equals("PRESET")) {
-                            String strLoanInstallmentName = APIUtils.getLoanInstallmentLabel(strLoanInstallmentId, strLoanTypeXML);
-                            strDuration = "\nDuration: " + strLoanInstallmentName;
-                        } else if (strInstallmentsType.equals("INPUT")) {
-                            strDuration = "\nDuration: " + strDuration + " Months";
+                        String strMenuInfo = "";
+                        /*if(dblLoanTypeMaxDuration > 0){ strMenuInfo = strMenuInfo + "Duration: " + Utils.formatDouble(dblLoanTypeMaxDuration, "#,##0.00") + " month(s)\n";}
+                        if(dblLoanTypeInterest > 0){ strMenuInfo = strMenuInfo + "Interest : " + Utils.formatDouble(dblLoanTypeInterest, "#,##0.00") + "%\n";}*/
+
+                        String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                        TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.LOAN_APPLICATION.getValue(),
+                                Double.parseDouble(strAmount));
+
+                        String strCharge = "";
+                        if (chargesWrapper.hasErrors()) {
+                            strCharge = "";
+                        } else {
+                            strCharge = "\nCharge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
                         }
 
-                        strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_APPLICATION_AMOUNT.name());
-                        strAmount = Utils.formatDouble(strAmount, "#,###");
-                        String strResponse = "Confirm " + strLoanName + " Application\n{Select a valid menu}" + strDuration + "\nAmount: KES " + strAmount + "\n";
+                        strAmount = Utils.formatDouble(strAmount, "#,##0.00");
+                        String strResponse = "Confirm " + strLoanTypeLabel + " Application\n{Select a valid menu}\n" + strMenuInfo + "Amount Applied: KES " + strAmount + strCharge + "\n";
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.LOAN_APPLICATION_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
@@ -780,6 +1129,23 @@ public interface LoansMenus {
             String strUSSDDataType = theUSSDRequest.getUSSDDataType();
             if (theParam.equalsIgnoreCase("MENU")) {
                 String strHeader = "Pay Loan";
+
+                FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.LOAN_REPAYMENT);
+                String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + getServiceStatusDetails.getStringValue("display_message"));
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_REPAYMENT_END, "NO", theArrayListUSSDSelectOption);
+                    return theUSSDResponse;
+
+                }else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.LOAN_REPAYMENT)) {
+                    ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader + "\n" + AppConstants.strServiceUnavailable);
+                    theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_REPAYMENT_END, "NO", theArrayListUSSDSelectOption);
+                    return theUSSDResponse;
+                }
+
                 theUSSDResponse = getLoanRepaymentOption(theUSSDRequest, strHeader);
 
             } else { //LOAN_REPAYMENT_MENU
@@ -796,14 +1162,8 @@ public interface LoansMenus {
                                 String strHeader = "Pay Loan\nSelect an account";
                                 theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                             } else {
-                                boolean blGroupBankingIsEnabled = theUSSDAPI.checkIfGroupBankingIsEnabled(theUSSDRequest);
-                                if (blGroupBankingIsEnabled) {
-                                    String strHeader = "Pay Loan via " + strLOAN_REPAYMENT_OPTION + "\nSelect Loan Category";
-                                    theUSSDResponse = GeneralMenus.displayMenu_LoanCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.LOAN_REPAYMENT_CATEGORY);
-                                } else {
-                                    String strHeader = "Pay Loan via " + strLOAN_REPAYMENT_OPTION + "\nSelect Loan";
-                                    theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
-                                }
+                                String strHeader = "Pay Loan via " + strLOAN_REPAYMENT_OPTION + "\nSelect Loan";
+                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                             }
                         } else {
                             String strHeader = "Pay Loan\n{Select a valid menu}";
@@ -818,38 +1178,8 @@ public interface LoansMenus {
                             String strHeader = "Pay loan from savings account\nSelect Loan";
                             theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         } else {
-                            String strHeader = "Pay Loa\n{Select a valid account}\nSelect an account";
+                            String strHeader = "Pay Loan\n{Select a valid account}\nSelect an account";
                             theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
-                        }
-                        break;
-                    }
-                    case LOAN_REPAYMENT_CATEGORY: {
-                        String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_CATEGORY.name());
-
-                        if (!strUserInput.equals("")) {
-                            if (strUserInput.equals("GROUP")) {
-                                String strHeader = "Pay Loan\nSelect Group";
-                                theUSSDResponse = GeneralMenus.displayMenu_AccountGroups(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP);
-                            } else {
-                                String strHeader = "Pay Loan\nSelect Loan";
-                                theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
-                            }
-                        } else {
-                            String strHeader = "Pay Loan\n{Select a valid menu}";
-                            theUSSDResponse = GeneralMenus.displayMenu_LoanCategories(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.LOAN_REPAYMENT_CATEGORY);
-                        }
-                        break;
-                    }
-
-                    case LOAN_REPAYMENT_GROUP: {
-                        String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP.name());
-
-                        if (!strUserInput.equals("")) {
-                            String strHeader = "Pay Loan \nSelect Loan";
-                            theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
-                        } else {
-                            String strHeader = "Pay Loan\n{Select a valid menu}";
-                            theUSSDResponse = getLoanRepaymentOption(theUSSDRequest, strHeader);
                         }
                         break;
                     }
@@ -871,7 +1201,6 @@ public interface LoansMenus {
                             String strResponse = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\nBal KES: " + strTotalLoanBalance + "\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                         } else {
-                            String strLoanGroup = theUSSDRequest.getUSSDData().getOrDefault(AppConstants.USSDDataType.LOAN_REPAYMENT_GROUP.name(), "");
                             String strHeader = "Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + "\n{Select a valid option}\nSelect Loan";
                             theUSSDResponse = GeneralMenus.displayMenu_Loans(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN, AppConstants.USSDDataType.LOAN_REPAYMENT_END);
                         }
@@ -892,7 +1221,7 @@ public interface LoansMenus {
 
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
                         if (strAmount.matches("^[1-9][0-9]*$")) {
-                            String strAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT.name());
+                           // String strAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT.name());
                             String strLoan = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                             strAmount = Utils.formatDouble(strAmount, "#,###");
                             String strResponse = "";
@@ -912,8 +1241,10 @@ public interface LoansMenus {
                             String strPayLoanMinimum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.PAY_LOAN).getMinimum();
                             String strPayLoanMaximum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.PAY_LOAN).getMaximum();
 
-                            double dblPayLoanMinimum = Double.parseDouble(strPayLoanMinimum);
-                            double dblPayLoanMaximum = Double.parseDouble(strPayLoanMaximum);
+                            double dblPayLoanMinimum = Double.parseDouble(strPayLoanMinimum);//TODO: RETURN THESE
+                            double dblPayLoanMaximum = Double.parseDouble(strPayLoanMaximum);//TODO: RETURN THESE
+
+                            dblPayLoanMaximum = 70_000;
 
                             strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
                             double dblAmountEntered = Double.parseDouble(strAmount);
@@ -944,6 +1275,7 @@ public interface LoansMenus {
                         String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_CONFIRMATION.name());
                         if (strConfirmation.equalsIgnoreCase("YES")) {
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
+                            String strFormattedAmount = Utils.formatDouble(strAmount, "#,##0.00");
 
                             String strResponse = "";
 
@@ -951,8 +1283,14 @@ public interface LoansMenus {
                                 strResponse = "Dear member, your request to Pay " + strLoanName + " via " + strLOAN_REPAYMENT_OPTION + " has been received successfully. Please wait shortly as it's being processed.";
 
                                 Thread worker = new Thread(() -> {
-                                    APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.loanRepayment(theUSSDRequest);
-                                    System.out.println("loanRepayment: " + transactionReturnVal.getValue());
+                                    TransactionWrapper<FlexicoreHashMap> loanPaymentWrapper = theUSSDAPI.loanPaymentViaSavings(theUSSDRequest, strAmount);
+                                    if (loanPaymentWrapper.hasErrors()) {
+                                        FlexicoreHashMap internalFundsTransferMap = loanPaymentWrapper.getSingleRecord();
+                                        String strErrorMessage = internalFundsTransferMap.getValue("cbs_api_return_val").toString() + "\n";
+                                        strErrorMessage += internalFundsTransferMap.getStringValue("display_message");
+
+                                        System.err.println("LoansMenus.displayMenu_LoanRepayment() - Response " + strErrorMessage);
+                                    }
                                 });
                                 worker.start();
 
@@ -963,28 +1301,49 @@ public interface LoansMenus {
 
                             } else {
                                 if (theUSSDRequest.getUSSDProviderCode() == AppConstants.USSDProvider.SAFARICOM.getValue()) {
-                                    strResponse = "You will be prompted by " + strLOAN_REPAYMENT_OPTION + " for payment\nPaybill no: " + strSender + "\n" + "Loan: " + strLoanName + "\n" + "Amount: KES " + strAmount + "\n";
 
-                                    String strOriginatorID = Long.toString(theUSSDRequest.getUSSDSessionID());
-                                    String strReceiver = Long.toString(theUSSDRequest.getUSSDMobileNo());
-                                    String strReceiverDetails = strReceiver;
-                                    String strAccount = "LOAN" + strLoanID;
-                                    Double lnAmount = Utils.stringToDouble(strAmount);
-                                    String strReference = strReceiver;
+                                    strResponse = "You will be prompted by " + strLOAN_REPAYMENT_OPTION + " for payment\nPaybill no: " + strSender + "\n" + "Loan: " + strLoanID + "\n" + "Amount: KES " + strFormattedAmount + "\n";
 
-                                    String strSessionID = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+                                    String strOriginatorID = theUSSDRequest.getUSSDTraceID();
+                                    String strBeneficiaryMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+                                    //String strReceiverDetails = strBeneficiaryMobileNo; //todo -> Get Receiver Name
+                                    String strAccountNo = strLoanID;
+
+                                    double lnAmount = Utils.stringToDouble(strAmount);
+
+                                    String strReference = strBeneficiaryMobileNo;
+
+                                    String strMemberName = theUSSDAPI.getUserFullName(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
                                     String strTraceID = theUSSDRequest.getUSSDTraceID();
 
-                                    PESAAPI thePESAAPI = new PESAAPI();
-                                    thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, strAccount, "KES", lnAmount, "ACCOUNT_DEPOSIT", strReference, "USSD", "MBANKING", strTraceID, strSessionID);
+                                    Thread worker = new Thread(() -> {
+                                        PESAAPI thePESAAPI = new PESAAPI();
+                                        //thePESAAPI.pesa_C2B_Request(strOriginatorID, strReceiver, strReceiverDetails, strAccount, "KES", lnAmount, "LOAN_REPAYMENT", strReference, "USSD", "MBANKING");
+
+                                        thePESAAPI.pesa_C2B_Request(
+                                                String.valueOf(theUSSDRequest.getUSSDMobileNo()),
+                                                strMemberName,
+                                                strTraceID,
+                                                "USSD",
+                                                strAccountNo,
+                                                strLoanName,
+                                                "MBANKING_SERVER",
+                                                strReference,
+                                                strBeneficiaryMobileNo,
+                                                strMemberName,
+                                                strAccountNo,
+                                                lnAmount,
+                                                "LOAN_REPAYMENT");
+                                    });
+                                    worker.start();
+
                                 } else {
-                                    strResponse = "Use the details below to pay via " + strLOAN_REPAYMENT_OPTION + "\nPaybill no: " + strSender + "\n" + "Loan: " + strLoanName + "\n" + "Amount: KES " + strAmount + "\n";
+                                    strResponse = "Use the details below to pay via " + strLOAN_REPAYMENT_OPTION + "\nPaybill no: " + strSender + "\n" + "Loan: " + strLoanID + "\n" + "Amount: KES " + strFormattedAmount + "\n";
                                 }
 
-                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
-                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                                //End USSD.
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
-                                //theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_REPAYMENT_END, "NO", theArrayListUSSDSelectOption);
+
                             }
 
                         } else if (strConfirmation.equalsIgnoreCase("NO")) {
@@ -993,7 +1352,7 @@ public interface LoansMenus {
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.LOAN_REPAYMENT_END, "NO", theArrayListUSSDSelectOption);
                         } else {
-                            String strAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT.name());
+                            //String strAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_ACCOUNT.name());
                             String strLoan = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_LOAN.name());
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOAN_REPAYMENT_AMOUNT.name());
                             strAmount = Utils.formatDouble(strAmount, "#,###");

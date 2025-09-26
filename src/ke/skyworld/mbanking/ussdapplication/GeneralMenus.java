@@ -7,10 +7,7 @@ import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.co.skyworld.smp.utility_items.data_formatting.Converter;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
 import ke.skyworld.lib.mbanking.pesa.PESALocalParameters;
-import ke.skyworld.lib.mbanking.ussd.USSDConstants;
-import ke.skyworld.lib.mbanking.ussd.USSDRequest;
-import ke.skyworld.lib.mbanking.ussd.USSDResponse;
-import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
+import ke.skyworld.lib.mbanking.ussd.*;
 import ke.skyworld.lib.mbanking.utils.Utils;
 import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
@@ -32,6 +29,8 @@ public interface GeneralMenus {
 
         try {
             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+
 
             String strGroup = theUSSDRequest.getUSSDData().getOrDefault(AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT_GROUP.name(), "");
 
@@ -361,6 +360,74 @@ public interface GeneralMenus {
         return theUSSDResponse;
     }
 
+    static USSDResponse displayMenu_LoanPurposes(USSDRequest theUSSDRequest, String theHeader, AppConstants.USSDDataType theUSSDDataType, AppConstants.USSDDataType theUSSD_END_DataType) {
+        USSDResponse theUSSDResponse = null;
+        AppMenus theAppMenus = new AppMenus();
+        USSDAPI theUSSDAPI = new USSDAPI();
+
+        String strMobileNo = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+
+            //get customer no of the user dialing -- end
+
+            TransactionWrapper<FlexicoreHashMap> getLoanPurposesWrapper = theUSSDAPI.getLoanPurposes(theUSSDRequest, "MSISDN", strMobileNo);
+
+            FlexicoreHashMap getLoanPurposesMap = getLoanPurposesWrapper.getSingleRecord();
+
+            int count = 0;
+
+            if (!getLoanPurposesWrapper.hasErrors()) {
+
+                FlexicoreArrayList loanPurposesList = getLoanPurposesMap.getFlexicoreArrayList("payload");
+
+                if (loanPurposesList != null && !loanPurposesList.isEmpty()) {
+
+                    for (FlexicoreHashMap loanPurposeItemMap : loanPurposesList) {
+                        count++;
+
+                        HashMap<String, String> hmLoanPurpose = new HashMap<>();
+
+                        String strLoanPurposeCode = loanPurposeItemMap.getStringValue("code");
+                        String strLoanPurposeDescription = loanPurposeItemMap.getStringValue("description");
+
+                        hmLoanPurpose.put("code", strLoanPurposeCode);
+                        hmLoanPurpose.put("description", strLoanPurposeDescription);
+
+                        String strOptionValue = Utils.serialize(hmLoanPurpose);
+
+                        String strOptionMenu = Integer.toString(count);
+                        String strOptionDisplayText = strOptionMenu + ": " + strLoanPurposeDescription;
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strOptionValue, strOptionDisplayText);
+                    }
+                }
+            }
+
+            if (count > 0) {
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+                ((USSDResponseSELECT) theUSSDResponse).setUSSDSelectOptionCustomCount(count);
+
+            } else {
+                String strResponse = "Sorry, no loan purposes found.";
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSD_END_DataType, "NO", theArrayListUSSDSelectOption);
+                return theUSSDResponse;
+            }
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_Loans() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+            theUSSDAPI = null;
+        }
+        return theUSSDResponse;
+    }
+
     static USSDResponse displayMenu_LoanBranches(USSDRequest theUSSDRequest, String theHeader, AppConstants.USSDDataType theUSSDDataType) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
@@ -400,7 +467,7 @@ public interface GeneralMenus {
         return theUSSDResponse;
     }
 
-    static USSDResponse displayMenu_ATMCards(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType) {
+    /*static USSDResponse displayMenu_ATMCards(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         USSDAPI theUSSDAPI = new USSDAPI();
@@ -434,6 +501,78 @@ public interface GeneralMenus {
                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                     theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.ATM_CARD_END, "NO", theArrayListUSSDSelectOption);
                 }
+            }
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_Loans() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+            theUSSDAPI = null;
+        }
+        return theUSSDResponse;
+    }*/
+
+    static USSDResponse displayMenu_ATMCards(USSDRequest theUSSDRequest, String theParam, String theHeader, APIConstants.AccountType theAccountType, AppConstants.USSDDataType theUSSDDataType) {
+        USSDResponse theUSSDResponse = null;
+        AppMenus theAppMenus = new AppMenus();
+        USSDAPI theUSSDAPI = new USSDAPI();
+        try {
+
+            String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+            HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+            String strIdentifierType = userIdentifierDetails.get("identifier_type");
+            String strIdentifier = userIdentifierDetails.get("identifier");
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+            TransactionWrapper<FlexicoreHashMap> atmCardsWrapper = theUSSDAPI.getATMCards(theUSSDRequest, strIdentifierType, strIdentifier);
+
+            FlexicoreHashMap atmCardsMap = atmCardsWrapper.getSingleRecord();
+
+            int count = 0;
+
+            if (!atmCardsWrapper.hasErrors()) {
+
+                FlexicoreArrayList atmCardsList = atmCardsMap.getFlexicoreArrayList("payload");
+
+                if (atmCardsList != null && !atmCardsList.isEmpty()) {
+
+                    for (FlexicoreHashMap atmCardItemMap : atmCardsList) {
+                        count++;
+
+                        HashMap<String, String> hmATMCards = new HashMap<>();
+
+                        String strATMCardsNumber = atmCardItemMap.getStringValue("card_number");
+                        String strATMCardsMemberName = atmCardItemMap.getStringValue("member_name");
+                        String strATMCardsId = atmCardItemMap.getStringValue("card_id");
+                        String strATMCardsIsLinked= atmCardItemMap.getStringValue("is_linked");
+                        String strATMCardsCardStatus= atmCardItemMap.getStringValue("card_status");
+
+                        hmATMCards.put("cardNumber", strATMCardsNumber);
+                        hmATMCards.put("memberName", strATMCardsMemberName);
+                        hmATMCards.put("cardId", strATMCardsId);
+                        hmATMCards.put("isLinked", strATMCardsIsLinked);
+                        hmATMCards.put("cardStatus", strATMCardsCardStatus);
+
+                        String strOptionValue = Utils.serialize(hmATMCards);
+
+                        String strOptionMenu = Integer.toString(count);
+                        String strOptionDisplayText = strOptionMenu + ": " + strATMCardsMemberName + " - " + strATMCardsNumber;
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strOptionValue, strOptionDisplayText);
+                    }
+                }
+            }
+
+            if (count > 0) {
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+                ((USSDResponseSELECT) theUSSDResponse).setUSSDSelectOptionCustomCount(count);
+
+            } else {
+                String strResponse = "Sorry, no loan purposes found.";
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.ATM_CARD_END, "NO", theArrayListUSSDSelectOption);
+                return theUSSDResponse;
             }
 
         } catch (Exception e) {
@@ -485,6 +624,89 @@ public interface GeneralMenus {
         return theUSSDResponse;
     }
 
+
+    static USSDResponse displayMenu_LoanTypes(USSDRequest theUSSDRequest, String theLoanType, String theHeader, AppConstants.USSDDataType theUSSDDataType, AppConstants.USSDDataType theUSSD_END_DataType) {
+        USSDResponse theUSSDResponse = null;
+        AppMenus theAppMenus = new AppMenus();
+        USSDAPI theUSSDAPI = new USSDAPI();
+
+        String strMobileNo = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+
+            TransactionWrapper<FlexicoreHashMap> getLoanTypesWrapper = CBSAPI.getLoanTypes(strMobileNo, "MSISDN", strMobileNo);
+
+            FlexicoreHashMap getLoanTypesMap = getLoanTypesWrapper.getSingleRecord();
+            int count = 0;
+
+            if (!getLoanTypesWrapper.hasErrors()) {
+
+                FlexicoreArrayList mobileEnabledLoansList = getLoanTypesMap.getFlexicoreArrayList("payload");
+
+                if (mobileEnabledLoansList != null && !mobileEnabledLoansList.isEmpty()) {
+
+                    for (FlexicoreHashMap loanTypesItemMap : mobileEnabledLoansList) {
+                        count++;
+
+                        HashMap<String, String> hmLoanType = new HashMap<>();
+
+                        String strLoanTypeName = loanTypesItemMap.getStringValue("loan_type_name");
+                        String strLoanTypeID = loanTypesItemMap.getStringValue("loan_type_id");
+
+                        if(theLoanType!=null && !theLoanType.isEmpty() && !theLoanType.equalsIgnoreCase(strLoanTypeID)){
+                            continue;
+                        }
+
+                        String strLoanTypeLabel = loanTypesItemMap.getStringValue("loan_type_name");
+                        String strLoanTypeMin = loanTypesItemMap.getStringValue("loan_type_min_amount");
+                        String strLoanTypeMax = loanTypesItemMap.getStringValue("loan_type_max_amount");
+                        //String strLoanTypeMaxInstallments = loanTypesItemMap.getStringValue("loan_type_max_installments");
+                        //String strLoanRequiresInstallments = loanTypesItemMap.getStringValue("requires_installments");
+
+                        hmLoanType.put("id", strLoanTypeID);
+                        hmLoanType.put("name", strLoanTypeName);
+                        hmLoanType.put("label", strLoanTypeLabel);
+                        hmLoanType.put("min", strLoanTypeMin);
+                        hmLoanType.put("max", strLoanTypeMax);
+                        //hmLoanType.put("requires_installments", strLoanRequiresInstallments);
+                        //hmLoanType.put("max_installments", strLoanTypeMaxInstallments);
+
+                        String strOptionValue = Utils.serialize(hmLoanType);
+
+                        String strOptionMenu = Integer.toString(count);
+                        String strOptionDisplayText = strOptionMenu + ": " + strLoanTypeLabel;
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strOptionValue, strOptionDisplayText);
+                    }
+                }
+            }
+
+            if (count > 0) {
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
+                ((USSDResponseSELECT) theUSSDResponse).setUSSDSelectOptionCustomCount(count);
+
+            } else {
+                String strResponse = "Sorry, no loans found.";
+                theArrayListUSSDSelectOption = new ArrayList<>();
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, theUSSD_END_DataType, "NO", theArrayListUSSDSelectOption);
+                return theUSSDResponse;
+            }
+
+        } catch (Exception e) {
+            System.err.println("theAppMenus.displayMenu_Loans() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+            theUSSDAPI = null;
+        }
+        return theUSSDResponse;
+    }
+
+
+
     static USSDResponse displayMenu_ErroneousTransactions(USSDRequest theUSSDRequest, String theHeader, AppConstants.USSDDataType theUSSDDataType) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
@@ -513,7 +735,6 @@ public interface GeneralMenus {
                 }
             }
             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithExit(theUSSDRequest, theUSSDDataType, "NO", theArrayListUSSDSelectOption);
-
 
             if (loanTypes != null && loanTypes.isEmpty()) {
                 String strOptionDisplayText = theHeader +".\nYou do not have any hanging deposits at the moment";
@@ -758,6 +979,10 @@ public interface GeneralMenus {
 
                 String strIntegritySecret = PESALocalParameters.getIntegritySecret();
                 SPManager spManager = new SPManager(strIntegritySecret);
+
+                System.out.println("strMobileNo: "+strMobileNo);
+                System.out.println("theSPProviderAccountCode: "+theSPProviderAccountCode);
+
                 LinkedList<LinkedHashMap<String, String>> listAccounts = spManager.getUserSavedAccountsByProvider(SPManagerConstants.UserIdentifierType.MSISDN, strMobileNo, theSPProviderAccountCode);
 
                 blAccountsMax = listAccounts.size() >= 7;
@@ -779,11 +1004,13 @@ public interface GeneralMenus {
 
                     String strOptionDisplayText = i + ": " + strUserAccountName + " (" + strUserAccountIdentifier + ")";
 
-                    if (strIntegrityHashViolated.equalsIgnoreCase(USSDConstants.Condition.NO.getValue())) {
+                    //TODO: confirm why this has an issue
+                    /*if (strIntegrityHashViolated.equalsIgnoreCase(USSDConstants.Condition.NO.getValue())) {
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(i), strOptionValueAccount, strOptionDisplayText);
                     }else{
                         System.out.println("Integrity has been violated");
-                    }
+                    }*/
+                    USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(i), strOptionValueAccount, strOptionDisplayText);
                 }
 
             } catch (Exception e) {

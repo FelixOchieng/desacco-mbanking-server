@@ -1,6 +1,13 @@
 package ke.skyworld.mbanking.mappapi;
 //import java.io.*;
 
+import ke.co.skyworld.smp.authentication_manager.MobileBankingCryptography;
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.query_manager.query.FilterPredicate;
+import ke.co.skyworld.smp.query_repository.Repository;
+import ke.co.skyworld.smp.utility_items.DateTime;
+import ke.co.skyworld.smp.utility_items.constants.StringRefs;
 import ke.skyworld.lib.mbanking.core.MBankingDB;
 import ke.skyworld.lib.mbanking.core.MBankingLocalParameters;
 import ke.skyworld.lib.mbanking.pesa.PESAConstants;
@@ -12,6 +19,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+import static ke.co.skyworld.smp.query_manager.SystemTables.TBL_MOBILE_BANKING_REGISTER;
 
 public class MAPPAPIDB {
     public static ResultSet executeQuery(String query) {
@@ -477,4 +488,33 @@ public class MAPPAPIDB {
 
 		return rVal;
 	}
+
+    public static boolean fnInsertOTPData(FlexicoreHashMap mobileBankingDetailsMap, String theMobileNumber, String theOTP, long intOTPTTL) {
+
+        LocalDateTime currentDateTime = LocalDateTime.now();
+        LocalDateTime expiryDateTime = currentDateTime.plusSeconds(intOTPTTL);
+
+        String strExpiryDateTime = expiryDateTime.format(DateTimeFormatter.ofPattern(DateTime.DEFAULT_DATE_TIME_FORMAT));
+
+        FlexicoreHashMap theUpdateLoginParamsMap = new FlexicoreHashMap();
+        theUpdateLoginParamsMap.put("otp", MobileBankingCryptography.hashPIN(theMobileNumber, theOTP));
+        theUpdateLoginParamsMap.put("otp_expiry_date", strExpiryDateTime);
+        theUpdateLoginParamsMap.put("date_modified", DateTime.getCurrentDateTime());
+
+        mobileBankingDetailsMap.copyFrom(theUpdateLoginParamsMap);
+
+        String integrityHash = MobileBankingCryptography.calculateIntegrityHash(mobileBankingDetailsMap);
+        theUpdateLoginParamsMap.putValue("integrity_hash", integrityHash);
+
+        TransactionWrapper<?> updateWrapper = Repository.update(
+                StringRefs.SENTINEL,
+                TBL_MOBILE_BANKING_REGISTER,
+                theUpdateLoginParamsMap,
+                new FilterPredicate("mobile_number = :mobile_number"),
+                new FlexicoreHashMap()
+                        .addQueryArgument(":mobile_number", theMobileNumber)
+        );
+
+        return updateWrapper.hasErrors();
+    }
 }

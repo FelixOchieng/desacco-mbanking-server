@@ -8,11 +8,11 @@ import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
 import ke.skyworld.lib.mbanking.utils.InMemoryCache;
 import ke.skyworld.lib.mbanking.utils.Utils;
-import ke.skyworld.mbanking.pesaapi.APIConstants;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
 
 import ke.skyworld.mbanking.pesaapi.PESAAPIConstants;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
+import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
 import java.util.ArrayList;
@@ -43,22 +43,19 @@ public interface BuyGoodsMenu {
 
                     String strShortCode = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.BUY_GOODS_ACCOUNT.name());
 
-                    HashMap<String, String> businessDetails = USSDAPI.getBusinessDetails(strShortCode);
+                    HashMap<String, String> businessDetails = USSDAPI.getBusinessDetails(theUSSDRequest, strShortCode);
 
                     String accountNo = "";
                     String AccountCode = "";
                     String strBusinessName = "";
                     String strBusinessPhone = "";
 
-
                     if (!businessDetails.isEmpty()) {
 
                         InMemoryCache.store("Business Details", businessDetails, 300);
 
-                        accountNo = businessDetails.get("ACCOUNT_NO");
                         AccountCode = businessDetails.get("ACCOUNT_CODE");
                         strBusinessName = businessDetails.get("BUSINESS_NAME");
-                        strBusinessPhone = businessDetails.get("BUSINESS_PHONE");
 
                         String strResponse = strHeader + "\n" +
                                 "Business Name: " + strBusinessName + "\n" +
@@ -97,8 +94,8 @@ public interface BuyGoodsMenu {
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                         theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmationWithoutHome(theUSSDRequest, AppConstants.USSDDataType.BUY_GOODS_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
 
-                        String strDepositMinimum = "1";
-                        String strDepositMaximum = "15";
+                        String strDepositMinimum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.DEPOSIT).getMinimum();
+                        String strDepositMaximum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.DEPOSIT).getMaximum();
 
                         double dblDepositMinimum = Double.parseDouble(strDepositMinimum);
                         double dblDepositMaximum = Double.parseDouble(strDepositMaximum);
@@ -164,7 +161,7 @@ public interface BuyGoodsMenu {
                                             strBusinessName,
                                             AccountCode,
                                             dblAmount,
-                                            "PIN_RESET");
+                                            "BUY_GOODS");
                                 });
                                 worker.start();
 
@@ -190,7 +187,6 @@ public interface BuyGoodsMenu {
                             if (strAmount.matches("^[1-9][0-9]*$")) {
                                 strAmount = Utils.formatDouble(strAmount, "#,###");
 
-
                                 LinkedHashMap<String, String> businessDetails = (LinkedHashMap<String, String>) InMemoryCache.retrieve("Business Details");
 
                                 String AccountCode = businessDetails.get("ACCOUNT_CODE ");
@@ -205,8 +201,8 @@ public interface BuyGoodsMenu {
                                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.BUY_GOODS_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
 
-                                String strDepositMinimum = "1";
-                                String strDepositMaximum = "10";
+                                String strDepositMinimum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.DEPOSIT).getMinimum();
+                                String strDepositMaximum = theUSSDAPI.getParam(APIConstants.USSD_PARAM_TYPE.DEPOSIT).getMaximum();
 
                                 double dblDepositMinimum = Double.parseDouble(strDepositMinimum);
                                 double dblDepositMaximum = Double.parseDouble(strDepositMaximum);
@@ -228,7 +224,6 @@ public interface BuyGoodsMenu {
                     }
                     break;
                 }
-
 
                 default: {
 

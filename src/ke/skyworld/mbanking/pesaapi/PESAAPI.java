@@ -1,5 +1,8 @@
 package ke.skyworld.mbanking.pesaapi;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.utility_items.DateTime;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingDB;
 import ke.skyworld.lib.mbanking.core.MBankingXMLFactory;
@@ -11,6 +14,8 @@ import ke.skyworld.mbanking.mappapi.MAPPAPI;
 import ke.skyworld.mbanking.mbankingapi.MBankingAPI;
 import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
+import ke.skyworld.mbanking.ussdapi.USSDAPI;
+import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import ke.skyworld.mbanking.ussdapplication.AppConstants;
 import ke.skyworld.mbanking.ussdapplication.HomeMenus;
 import org.w3c.dom.Document;
@@ -119,6 +124,22 @@ public class PESAAPI {
             String phoneNo = thePESAIN.getSenderIdentifier();
             String keyWord = "";
 
+            String strMobileNumber = thePESAIN.getInitiatorIdentifier();
+            String strAccountNumber = thePESAIN.getReceiverAccount();
+
+            String strKey = strMobileNumber + "-PIN-RESET-" + strAccountNumber;
+
+            if (ke.co.skyworld.smp.utility_items.memory.InMemoryCache.exists(strKey)) {
+
+                double dbExpectedAmount = (double) ke.co.skyworld.smp.utility_items.memory.InMemoryCache.retrieve(strKey);
+
+                if (thePESAIN.getTransactionAmount() >= (dbExpectedAmount)) {
+                    thePESAINResponse.setCategory("PIN_RESET");
+                    CBSAPI.resetMbankingPIN(strMobileNumber, transactionID, transactionID);
+                    ke.co.skyworld.smp.utility_items.memory.InMemoryCache.remove(strKey);
+                }
+            }
+
             //todo: to change this to use service code - to determine source i.e: coop bank, m-pesa etc.
             if (strPESAINCategory.equalsIgnoreCase("COOPBANK_PAY_TO_FOSA")) {
                 accountNo = thePESAIN.getBeneficiaryAccount();
@@ -147,7 +168,8 @@ public class PESAAPI {
 
                 transaction = "CoopDeposit";
                 description = "COOP B2B|IN|" + thePESAIN.getSourceIdentifier() + "|" + thePESAIN.getBeneficiaryIdentifier();
-            } else {
+            }
+            /*else {
 
                 String strMobileNumber = thePESAIN.getInitiatorIdentifier();
                 String strAccountNumber = thePESAIN.getReceiverAccount();
@@ -189,8 +211,9 @@ public class PESAAPI {
                         InMemoryCache.remove(strKey);
                     }
                 }
-            }
+            }*/
 
+            //TODO: VINCENT: confirm if these are still being used.
             if (description.length() > 50) {
                 description = description.substring(0, 49);
             }
@@ -199,7 +222,58 @@ public class PESAAPI {
                 accountNo = accountNo.substring(0, 20);
             }
 
-            boolean isOtherNumber = false;
+            TransactionWrapper<FlexicoreHashMap> mobileMoneyDepositWrapper = CBSAPI.mobileMoneyDeposit(thePESAIN);
+
+            FlexicoreHashMap mobileMoneyDepositMap = mobileMoneyDepositWrapper.getSingleRecord();
+
+            USSDAPIConstants.StandardReturnVal standardReturnVal = mobileMoneyDepositMap.getValue("cbs_api_return_val");
+            String cbsResponseMessage = mobileMoneyDepositMap.getStringValue("cbs_response_message");
+
+            if (cbsResponseMessage.length() > 1000) {
+                cbsResponseMessage = cbsResponseMessage.substring(0, cbsResponseMessage.length() - 1);
+            }
+
+            if (standardReturnVal == USSDAPIConstants.StandardReturnVal.SUCCESS) {
+                String cbsTransactionReference = mobileMoneyDepositMap.getStringValue("cbs_transaction_reference");
+                thePESAINResponse.setBeneficiaryApplication("CBS");
+                thePESAINResponse.setBeneficiaryReference(cbsTransactionReference);
+            }
+
+            if (standardReturnVal == USSDAPIConstants.StandardReturnVal.SUCCESS || standardReturnVal == USSDAPIConstants.StandardReturnVal.BUFFER_SAVE_SUCCESS) {
+
+                String strFormattedDateTime = Utils.formatDate(thePESAIN.getPesaDateCreated(), "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm:ss");
+
+                String strMSG = "Your M-PESA Deposit of KES " + Utils.formatDouble(thePESAIN.getTransactionAmount(), "#,##0.00") +
+                        " to Paybill " + thePESAIN.getReceiverIdentifier() + " (" + thePESAIN.getReceiverName() + ") for account " + thePESAIN.getReceiverAccount() + " was received successfully on " + strFormattedDateTime + ". MPesa Ref: " + thePESAIN.getOriginatorID();
+
+                //Requested by SACCO not to send.
+                /*int intMSGSent = fnSendSMS(thePESAIN.getSourceIdentifier(), strMSG, "YES", MSGConstants.MSGMode.SAF, 210, "MPESA_DEPOSIT", "USSD", "MBANKING_SERVER",
+                        thePESAIN.getOriginatorID(), thePESAIN.getSourceReference());*/
+
+            }
+
+            if (standardReturnVal == USSDAPIConstants.StandardReturnVal.SUCCESS
+                    || standardReturnVal == USSDAPIConstants.StandardReturnVal.BUFFER_SAVE_SUCCESS) {
+
+                thePESAINResponse.setResponseCode(PESAConstants.PESAStatusCode.PROCESSED.getValue());
+                thePESAINResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.getValue());
+                thePESAINResponse.setResponseDescription("CBS RESPONSE: Transaction received successfully");
+
+            } else if (standardReturnVal.equals(USSDAPIConstants.StandardReturnVal.DUPLICATE)) {
+                thePESAINResponse.setResponseCode(PESAConstants.PESAStatusCode.PROCESSED.getValue());
+                thePESAINResponse.setResponseName(PESAConstants.PESAResponse.DUPLICATE.getValue());
+                thePESAINResponse.setResponseDescription("CBS RESPONSE: Transaction already received successfully.");
+            } else {
+                thePESAINResponse.setResponseCode(PESAConstants.PESAStatusCode.SEND_ERROR.getValue());
+                thePESAINResponse.setResponseName(PESAConstants.PESAResponse.ERROR.getValue());
+                thePESAINResponse.setResponseDescription(cbsResponseMessage);
+            }
+
+            String cbsTransactionReference = mobileMoneyDepositMap.getStringValue("cbs_transaction_reference");
+
+            thePESAINResponse.setResponseReference(cbsTransactionReference);
+
+            /*boolean isOtherNumber = false;
 
             XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
 
@@ -218,6 +292,7 @@ public class PESAAPI {
                         transactionID, "MBANKING", accountNo, thePESAIN.getBeneficiaryName(), thePESAIN.getReceiverName(),
                         isOtherNumber, destinationMobileNumber);
             }
+
 
             //String strTransactionStatus = CBSAPI.insertMpesaTransaction(entryCode, transactionID, xmlGregorianCalendar, transaction, description, accountNo, BigDecimal.valueOf(amount), phoneNo, "", "USSD", transactionID, "MBANKING", accountNo, thePESAIN.getBeneficiaryName(), thePESAIN.getReceiverName(), isOtherNumber,"");
 
@@ -245,6 +320,11 @@ public class PESAAPI {
             strResponse = (transactionID != null) ? transactionID : "";
             thePESAINResponse.setBeneficiaryReference(strTransactionIDFromNavision);
             thePESAINResponse.setBeneficiaryApplication("CBS");
+
+            */
+
+
+
         } catch (Exception e) {
             System.err.println("PESAAPI.confirmPESA_IN() ERROR : " + e.getMessage());
             thePESAINResponse.setResponseCode(PESAConstants.PESAStatusCode.FORWARD_ERROR.getValue());
@@ -318,7 +398,6 @@ public class PESAAPI {
 
             if (String.valueOf(thePESAIN.getProductID()).equalsIgnoreCase("9")) {
                 strSourceOnCBS = "MBANKING";
-
             }
 
             /*if (strBeneficiaryType.equals("NATIONAL_ID")) {
@@ -546,7 +625,7 @@ public class PESAAPI {
                     if (blOTPValidationFailed) {
                         int intUserLoginAttemptsCount = CBSAPI.getUserLoginAttemptCount(strMobileNumber, "OTP");
                         intUserLoginAttemptsCount = intUserLoginAttemptsCount + 1;
-                        new MAPPAPI().suspendUserAccess(strMobileNumber, intUserLoginAttemptsCount, "OTP", strMobileNumber, ke.skyworld.mbanking.mappapi.APIConstants.OTP_TYPE.TRANSACTIONAL);
+                        //new MAPPAPI().suspendUserAccess(strMobileNumber, intUserLoginAttemptsCount, "OTP", strMobileNumber, ke.skyworld.mbanking.mappapi.APIConstants.OTP_TYPE.TRANSACTIONAL);
                         System.out.println("Memory Search By Key " + strMemoryCacheKey + " was NOT FOUND");
                     } else {
                         InMemoryCache.remove(strMemoryCacheKey);
@@ -655,7 +734,11 @@ public class PESAAPI {
 
             String strEntryNumber = thePESAResult.getBeneficiaryReference();
 
-            String strCategory = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "pesa_category");
+            PESA pesa = PESADB.getPESAByOriginatorID(PESAConstants.PESAType.PESA_OUT, strOriginatorID);
+            String strCategory = pesa.getCategory();
+            
+
+            //String strCategory = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "pesa_category");
 
             String strDescription = "";
             String strDescriptionPrefix = "";
@@ -692,53 +775,30 @@ public class PESAAPI {
                     strPesaType = "Mpesa Withdrawal";
                     strDescriptionPrefix = "Withdrawal";
             }
-
+            
 
             String strReceiverType = "";
-            String strInitiatorIdentifier = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "initiator_identifier");
+            String strInitiatorIdentifier = pesa.getInitiatorIdentifier();
             String strReceiverIdentifier = "";
             String strReceiverOrganization = "";
             String strReceiverAccount = "";
             String strReceiverName = "";
 
-            if (thePESAResult.getResultCode() == 105) {
+            if (thePESAResult.getResultCode() == PESAConstants.PESAStatusCode.CONFIRMED.getValue()) {
                 //Get MPESA Result Name
                 if (thePESAResult.getPESAType().equals("PESA_OUT")) {
-                    //TODO: TEST THIS AFTER COMPILATION
 
                     switch (strCategory) {
-                        case "CASH_WITHDRAWAL":
                         case "MPESA_WITHDRAWAL":
-                            strDescription = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "transaction_remark");
-
-                            String strName = MBankingXMLFactory.getXPathValueFromXMLString("/RESULT/RECEIVER/NAME", thePESAResult.getOtherDetails());
-                            strDescription = strDescription + "|" + strName;
-                            break;
-                        case "PESA_AUTO_PAYMENT":
-
-                            strDescription = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "transaction_remark");
-                            strEntryNumber = thePESAResult.getOriginatorID();
-                            break;
-                        case "CARDLESS_ATM_WITHDRAWAL":
-                            strDescription = "Cardless ATM Withdrawal";
-                            strEntryNumber = thePESAResult.getOriginatorID();
-                            break;
                         case "BILL_PAYMENT":
+                        case "TILL_PAYMENT":
                         case "BANK_TRANSFER":
-                        case "PESALINK_TRANSFER":
-                            strEntryNumber = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "source_reference");
-                            /*HashMap<String, String> hmPesaResultName = PESAXMLFactory.getPESAResultReceiverDetails(thePESAResult.getOtherDetails());
+                            HashMap<String, String> hmPesaResultName = PESAXMLFactory.getPESAResultReceiverDetails(thePESAResult.getOtherDetails());
                             strReceiverType = hmPesaResultName.get("RECEIVER_TYPE");
-                            strReceiverIdentifier = hmPesaResultNamSavie.get("RECEIVER_IDENTIFIER");
+                            strReceiverIdentifier = hmPesaResultName.get("RECEIVER_IDENTIFIER");
                             strReceiverAccount = hmPesaResultName.get("RECEIVER_ACCOUNT");
                             strReceiverName = hmPesaResultName.get("RECEIVER_NAME");
-                            strDescription = strDescriptionPrefix+" to "+strReceiverName;*/
-
-                            //PesaLink to Standard Chartered Bank A/C 1213345687787 from 254722554433 Isaac Kiptoo Mulwa Jacob Orao
-                            //PesaLink to 1213345687787 Standard Chartered Bank
-                            //PL|BT|11|01109089263400|254720259655|JACOB AYIEKE
-
-                            strDescription = PESAAPIDB.getPESATransaction(strEntryNumber, PESAConstants.PESAType.PESA_OUT, "transaction_remark");
+                            strDescription = strPesaType + " to " + strReceiverName;
                             break;
                         default:
                             strDescription = strDescriptionPrefix;
@@ -747,74 +807,152 @@ public class PESAAPI {
                     strDescription = shortenName(strDescription);
                 }
 
-                String strBeneficiaryIdentifier = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "beneficiary_identifier");
+                String strFormattedPesaResultDateTime = Utils.formatDate(thePESAResult.getDateCreated(), "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm:ss");
 
-                String beneficiaryName = strReceiverName;
-                boolean otherNumber = !(strBeneficiaryIdentifier.equals(strInitiatorIdentifier));
+                if(thePESAResult.getBeneficiaryReference().trim().equalsIgnoreCase("null")){
+                    thePESAResult.setBeneficiaryReference(thePESAResult.getOriginatorID());
+                }
 
-                XMLGregorianCalendar xmlGregorianCalendar = fnGetCurrentDateInGregorianFormat();
+                TransactionWrapper<FlexicoreHashMap> mobileMoneyResultWrapper = CBSAPI.mobileMoneyResult(
+                        pesa,
+                        pesa.getInitiatorIdentifier(),
+                        "MSISDN",
+                        pesa.getInitiatorIdentifier(),
+                        thePESAResult.getOriginatorID(),
+                        pesa.getBeneficiaryType(),
+                        pesa.getBeneficiaryIdentifier(),
+                        pesa.getBeneficiaryName(),
+                        pesa.getBeneficiaryOtherDetails(),
+                        thePESAResult.getBeneficiaryReference(),
+                        thePESAResult.getDateCreated());
 
-//                String strTransactionStatus = CBSAPI.insertMpesaTransaction(thePESAResult.getOriginatorID(), thePESAResult.getReceiverReference(), xmlGregorianCalendar, strPesaType, strDescription, "", BigDecimal.valueOf(0), "", "", "USSD", thePESAResult.getReceiverReference(), "MBANKING", "M-PESA", strBeneficiaryIdentifier, beneficiaryName, otherNumber, beneficiaryName);
+                FlexicoreHashMap mobileMoneyResultMap = mobileMoneyResultWrapper.getSingleRecord();
 
-                String strTransactionStatus = CBSAPI.insertMpesaTransaction(thePESAResult.getOriginatorID(), thePESAResult.getReceiverReference(), xmlGregorianCalendar, strPesaType, strDescription, "", BigDecimal.valueOf(0), "", "", "USSD", thePESAResult.getReceiverReference(), "MBANKING", "M-PESA", strBeneficiaryIdentifier, beneficiaryName, otherNumber, strBeneficiaryIdentifier);
+                String strResultTransactionStatus = mobileMoneyResultMap.getStringValue("cbs_api_return_val");
+                String cbsResponseMessage = mobileMoneyResultMap.getStringValue("cbs_response_message");
 
-                String strTransactionResponseStatus = MBankingXMLFactory.getXPathValueFromXMLString("/Response/Status", strTransactionStatus);
-                System.out.println(strPesaType + " Transaction sent to Nav with status: " + strTransactionStatus);
-                if (strTransactionResponseStatus.equals("SUCCESS")) {
-                    MAPPAPI mappapi = new MAPPAPI();
-                    String strSourceIdentifier = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "source_identifier");
-                    String strSourceName = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "source_name");
-                    String strSenderName = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "sender_name");
-                    String strSenderIdentifier = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "sender_identifier");
-                    String strAmount = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "transaction_amount");
-                    strAmount = Utils.formatDouble(strAmount, "#,###.##");
-                    String strSourceMobileNumber = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "initiator_identifier");
-
-                    InputSource source = new InputSource(new StringReader(thePESAResult.getOtherDetails()));
-                    DocumentBuilderFactory builderFactory = DocumentBuilderFactory.newInstance();
-                    DocumentBuilder builder = builderFactory.newDocumentBuilder();
-                    Document xmlDocument = builder.parse(source);
-                    XPath configXPath = XPathFactory.newInstance().newXPath();
-
-                    String strPESARecipientMobileNumber = PESAAPIDB.getPESATransaction(strOriginatorID, PESAConstants.PESAType.PESA_OUT, "beneficiary_identifier");
-                    String strPESADestinationReference = thePESAResult.getBeneficiaryReference();
-
-                    if (!strPESARecipientMobileNumber.equals(APIUtils.sanitizePhoneNumber(strSourceMobileNumber))) {
-                        String strServiceProvider = "M-Pesa";
-
-                        String strMSG = strSourceName + " has sent KSh " + strAmount + " to your " + strServiceProvider + ". The " + strServiceProvider + " receipt number is " + strPESADestinationReference + " and transaction reference is " + strOriginatorID;
-                        String strSessionID = strPESADestinationReference + "_MSG";
-                        String strTraceID = UUID.randomUUID().toString();
-                        fnSendSMS(strPESARecipientMobileNumber, strMSG, "YES", MSGConstants.MSGMode.EXPRESS, 200, "TRANSACTION_RESULT", "MAPP", "MBANKING_SERVER", strSessionID, strTraceID);
-                    }
-
-                    thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.COMPLETED.getValue());
-                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.name());
+                if (strResultTransactionStatus.equals("SUCCESS")) {
+                    thePESAResultResponse.setResponseCode(102);
+                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.getValue());
                     thePESAResultResponse.setResponseDescription("SUCCESS");
-                } else if (strTransactionResponseStatus.equals("TRANSACTION_EXISTS")) {
-                    thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.COMPLETED.getValue());
-                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.name());
+                } else if (strResultTransactionStatus.equals("TRANSACTION_EXISTS")) {
+                    thePESAResultResponse.setResponseCode(102);
+                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.getValue());
                     thePESAResultResponse.setResponseDescription("TRANSACTION_EXISTS");
                 } else {
-                    thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.SEND_ERROR.getValue());
-                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.ERROR.name());
-                    thePESAResultResponse.setResponseDescription(strTransactionStatus);
-                    thePESAResultResponse.setChargeApplied(0.00);
+                    thePESAResultResponse.setResponseCode(103);
+                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.ERROR.getValue());
+                    thePESAResultResponse.setResponseDescription("CBS RESPONSE: " + cbsResponseMessage);
                 }
+
+                if (thePESAResult.getPESAType().equals("PESA_OUT")) {
+                    switch (strResultTransactionStatus) {
+                        case "SUCCESS", "TRANSACTION_EXISTS" -> {
+                            String strMSG = "";
+
+                            String strFormattedDateTime = Utils.formatDate(pesa.getPesaDateCreated(), "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm");
+                            String strFormattedAmount = Utils.formatDouble(pesa.getTransactionAmount(), "#,##0.00");
+
+                            switch (strCategory) {
+                                case "MPESA_WITHDRAWAL" ->
+                                        strMSG = "Dear member, your Cash Withdrawal request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " on " + strFormattedDateTime + " has been completed successfully. M-PESA Ref: " + thePESAResult.getBeneficiaryReference();
+                                case "BILL_PAYMENT" ->
+                                        strMSG = "Dear member, your Bill Payment request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " has been completed successfully. M-PESA Ref: " + thePESAResult.getBeneficiaryReference();
+                                case "TILL_PAYMENT" ->
+                                        strMSG = "Dear member, your Buy Goods & Services request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + " on " + strFormattedDateTime + " has been completed successfully. M-PESA Ref: " + thePESAResult.getBeneficiaryReference();
+
+                                case "AIRTIME_PURCHASE" ->
+                                        strMSG = "Dear member, your Airtime Purchase request of KES " + strFormattedAmount + " for " + pesa.getBeneficiaryIdentifier() + " on " + strFormattedDateTime + " has been completed successfully.";
+                                case "BANK_TRANSFER" ->
+                                        strMSG = "Dear member, your Bank Transfer request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " has been completed successfully. M-PESA Ref: " + thePESAResult.getBeneficiaryReference();
+                            }
+
+                            /*fnSendSMS(pesa.getInitiatorIdentifier(),
+                                    strMSG, "YES", MSGConstants.MSGMode.SAF, 210, strCategory, pesa.getInitiatorApplication(), "MBANKING_SERVER", pesa.getOriginatorID(), pesa.getSourceReference());
+*/
+                            if (!pesa.getInitiatorIdentifier().equalsIgnoreCase(pesa.getBeneficiaryIdentifier())) {
+                                switch (strCategory) {
+                                    case "MPESA_WITHDRAWAL" -> {
+                                        strMSG = "You have received KES " + strFormattedAmount + " from " + pesa.getInitiatorName().toUpperCase() + " " + pesa.getInitiatorIdentifier() + " on " + strFormattedDateTime + ". M-PESA Ref: " + thePESAResult.getBeneficiaryReference();
+                                        /*fnSendSMS(pesa.getBeneficiaryIdentifier(),
+                                                strMSG, "YES", MSGConstants.MSGMode.SAF, 210, strCategory, pesa.getInitiatorApplication(), "MBANKING_SERVER", UUID.randomUUID().toString(), pesa.getSourceReference());
+                                    */
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
             } else {
-                boolean blTransactionStatus = CBSAPI.reverseWithdrawalRequest(thePESAResult.getOriginatorID());
-                System.out.println(strPesaType + "Transaction reversed on Nav with status: " + blTransactionStatus);
-                if (blTransactionStatus) {
-                    thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.REVERSE_COMPLETED.getValue());
-                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.name());
+
+                TransactionWrapper<FlexicoreHashMap> reverseMobileMoneyWrapper = CBSAPI.reverseMobileMoneyWithdrawal(
+                        pesa.getInitiatorIdentifier(),
+                        "MSISDN",
+                        pesa.getInitiatorIdentifier(),
+                        pesa.getOriginatorID(),
+                        pesa.getBeneficiaryType(),
+                        pesa.getBeneficiaryIdentifier(),
+                        pesa.getBeneficiaryName(),
+                        pesa.getBeneficiaryOtherDetails(),
+                        "",
+                        DateTime.getCurrentDateTime("yyyy-MM-dd HH:mm:ss"));
+
+                String strFormattedDateTime = Utils.formatDate(pesa.getPesaDateCreated(), "yyyy-MM-dd HH:mm:ss", "dd-MMM-yyyy HH:mm");
+
+                String strFormattedAmount = Utils.formatDouble(pesa.getTransactionAmount(), "#,##0.00");
+
+                if (!reverseMobileMoneyWrapper.hasErrors()) {
+                    thePESAResultResponse.setResponseCode(102);
+                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.SUCCESS.getValue());
                     thePESAResultResponse.setResponseDescription("Reversal Succeeded");
+
+                    String strMSG = "";
+
+                    switch (strCategory) {
+                        case "MPESA_WITHDRAWAL" ->
+                                strMSG = "Dear member, your Cash Withdrawal request of KES " + strFormattedAmount + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strMBankingUSSDCode + " to check your balance.";
+                        case "BILL_PAYMENT" ->
+                                strMSG = "Dear member, your Bill Payment request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strMBankingUSSDCode + " to check your balance.";
+                        case "TILL_PAYMENT" ->
+                                strMSG = "Dear member, your Buy Goods & Services request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strMBankingUSSDCode + " to check your balance.";
+
+                        case "AIRTIME_PURCHASE" ->
+                                strMSG = "Dear member, your Airtime Purchase request of KES " + strFormattedAmount + " for " + pesa.getBeneficiaryIdentifier() + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strMBankingUSSDCode + " to check your balance.";
+                        case "BANK_TRANSFER" ->
+                                strMSG = "Dear member, your Bank Transfer request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " has been REVERSED. Dial " + AppConstants.strMBankingUSSDCode + " to check your balance.";
+
+                    }
+
+                    /*fnSendSMS(pesa.getInitiatorIdentifier(),
+                            strMSG, "YES", MSGConstants.MSGMode.SAF, 210, strCategory + "_REVERSAL", pesa.getInitiatorApplication(), "MBANKING_SERVER", pesa.getOriginatorID(), pesa.getSourceReference());
+*/
                 } else {
-                    thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.REVERSE_ERROR.getValue());
-                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.ERROR.name());
-                    thePESAResultResponse.setResponseDescription("Transaction Reversal Error");
-                    thePESAResultResponse.setChargeApplied(0.00);
+                    thePESAResultResponse.setResponseCode(103);
+                    thePESAResultResponse.setResponseName(PESAConstants.PESAResponse.ERROR.getValue());
+                    thePESAResultResponse.setResponseDescription("Transaction reversal failed");
+
+                    String strMSG = "";
+
+                    switch (strCategory) {
+                        case "MPESA_WITHDRAWAL" ->
+                                strMSG = "Dear member, your Cash Withdrawal request of KES " + strFormattedAmount + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
+                        case "BILL_PAYMENT" ->
+                                strMSG = "Dear member, your Bill Payment request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
+                        case "TILL_PAYMENT" ->
+                                strMSG = "Dear member, your Buy Goods & Services request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
+                        case "AIRTIME_PURCHASE" ->
+                                strMSG = "Dear member, your Airtime Purchase request of KES " + strFormattedAmount + " for " + pesa.getBeneficiaryIdentifier() + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
+                        case "BANK_TRANSFER" ->
+                                strMSG = "Dear member, your Bank Transfer request of KES " + strFormattedAmount + " to " + pesa.getReceiverIdentifier() + " - " + pesa.getReceiverName() + ", A/C " + pesa.getReceiverAccount() + " on " + strFormattedDateTime + " REVERSAL FAILED. Please contact the SACCO for assistance.";
+                    }
+
+                    /*fnSendSMS(pesa.getInitiatorIdentifier(),
+                            strMSG, "YES", MSGConstants.MSGMode.SAF, 210, strCategory + "_REVERSAL", pesa.getInitiatorApplication(), "MBANKING_SERVER", pesa.getOriginatorID(), pesa.getSourceReference());
+*/
                 }
             }
+
         } catch (Exception e) {
             if (e.getMessage().contains("The Sky Transactions already exists.")) {
                 thePESAResultResponse.setResponseCode(PESAConstants.PESAStatusCode.COMPLETED.getValue());

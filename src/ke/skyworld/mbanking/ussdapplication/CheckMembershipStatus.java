@@ -1,9 +1,13 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
+import ke.skyworld.mbanking.nav.cbs.DeSaccoCBS;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
 import java.util.ArrayList;
@@ -53,23 +57,22 @@ public interface CheckMembershipStatus {
 
                             String strResponse = "Membership status\nAccount Details:\n";
 
+                            TransactionWrapper memberDetailsWrapper = DeSaccoCBS.getMemberDetails("MSISDN", String.valueOf(theUSSDRequest.getUSSDMobileNo()));
 
-                            HashMap<String, String> accountStatus = USSDAPI.getMemberStatus(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
-
-                            if (!accountStatus.isEmpty()) {
-                                strResponse += "Name: " + accountStatus.get("Name") + "\n";
-                                strResponse += "Member Number: " + accountStatus.get("MemberNo") + "\n";
-                                strResponse += "Service Number: " + accountStatus.get("ServiceNo") + "\n";
-                                strResponse += "Phone Number: " + theUSSDRequest.getUSSDMobileNo() + "\n";
-                                strResponse += "Balance: " + accountStatus.get("Balance");
-                            } else {
-                                strResponse += "Account Details not found.";
+                            if (!memberDetailsWrapper.hasErrors()) {
+                                FlexicoreHashMap memberDetailsMap = memberDetailsWrapper.getSingleRecord();
+                                strResponse += "Name: " + memberDetailsMap.getStringValue("full_name") + "\n";
+                                strResponse += "Member Number: " + memberDetailsMap.getStringValue("identifier") + "\n";
+                                strResponse += "Service Number: " + memberDetailsMap.getStringValue("service_no") + "\n";
+                                strResponse += "Phone Number: " + theUSSDRequest.getUSSDMobileNo();
+                                //strResponse += "Balance: " + accountStatus.get("Balance");
+                            }else{
+                                strResponse += "Account Details not found. Please try again later";
                             }
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.ACCOUNT_STATUS_END, "NO", theArrayListUSSDSelectOption);
-
 
                             break;
                         }

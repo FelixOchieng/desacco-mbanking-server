@@ -806,17 +806,19 @@ public class APIUtils {
         private String strProviderAccountCode;
         private String strProviderAccountName;
         private String strProviderAccountType;
+        private String strProviderAccountTypeTag;
         private String strProviderAccountIdentifier;
         private String strProviderAccountLongTag;
         private String strProviderBranchCode;
         private String dblMinTransactionAmount;
         private String dblMaxTransactionAmount;
 
-        public ServiceProviderAccount(String theProviderCode, String theProviderAccountCode, String theProviderAccountName, String theProviderAccountType, String theProviderAccountIdentifier, String theProviderAccountLongTag, String theProviderBranchCode, String theMinTransactionAmount, String theMaxTransactionAmount) {
+        public ServiceProviderAccount(String theProviderCode, String theProviderAccountCode, String theProviderAccountName, String theProviderAccountType, String theProviderAccountTypeTag, String theProviderAccountIdentifier, String theProviderAccountLongTag, String theProviderBranchCode, String theMinTransactionAmount, String theMaxTransactionAmount) {
             this.strProviderCode = theProviderCode;
             this.strProviderAccountCode = theProviderAccountCode;
             this.strProviderAccountName = theProviderAccountName;
             this.strProviderAccountType = theProviderAccountType;
+            this.strProviderAccountTypeTag = theProviderAccountTypeTag;
             this.strProviderAccountIdentifier = theProviderAccountIdentifier;
             this.strProviderAccountLongTag = theProviderAccountLongTag;
             this.strProviderBranchCode = theProviderBranchCode;
@@ -850,6 +852,10 @@ public class APIUtils {
 
         public String getProviderAccountType() {
             return strProviderAccountType;
+        }
+
+        public String getProviderAccountTypeTag() {
+            return strProviderAccountTypeTag;
         }
 
         public void setProviderAccountType(String strProviderAccountType) {
@@ -897,7 +903,7 @@ public class APIUtils {
         }
     }
 
-    public static LinkedList<ServiceProviderAccount> getSPAccounts(String theProviderAccountType){
+   /* public static LinkedList<ServiceProviderAccount> getSPAccounts(String theProviderAccountType){
         LinkedList<ServiceProviderAccount> rVal = new LinkedList<ServiceProviderAccount>();
         MAPPAPI mappapi = new MAPPAPI();
         SPManager spManager;
@@ -926,6 +932,39 @@ public class APIUtils {
             System.err.println(APIUtils.class.getSimpleName()+"."+new Object() {}.getClass().getEnclosingMethod().getName()+"() ERROR : " + e.getMessage());
         } finally {
             mappapi = null;
+            spManager = null;
+        }
+
+        return rVal;
+    }*/
+
+    public static LinkedList<ServiceProviderAccount> getSPAccounts(SPManagerConstants.ProviderAccountType theProviderAccountType){
+        LinkedList<ServiceProviderAccount> rVal = new LinkedList<ServiceProviderAccount>();
+        SPManager spManager;
+        try {
+            String strIntegritySecret = PESALocalParameters.getIntegritySecret();
+            spManager = new SPManager(strIntegritySecret);
+            LinkedList<LinkedHashMap<String, String>> llHsB2CAccounts = spManager.getB2BCapabilitySPAccounts(theProviderAccountType);
+            for (LinkedHashMap<String, String> lhsB2CAccount : llHsB2CAccounts) {
+                String strProviderCode = lhsB2CAccount.get("provider_code");
+                String strProviderAccountCode = lhsB2CAccount.get("provider_account_code");
+                String strProviderAccountName = lhsB2CAccount.get("provider_account_name");
+                String strProviderAccountType = lhsB2CAccount.get("provider_account_type");
+                String strProviderAccountTypeTag = lhsB2CAccount.get("provider_account_type_tag");
+                String strProviderAccountIdentifier = lhsB2CAccount.get("provider_account_identifier");
+                String strProviderAccountLongTag = lhsB2CAccount.get("provider_account_long_tag");
+                String strProviderOtherDetails = lhsB2CAccount.get("provider_other_details");
+                String dblMinTransactionAmount = lhsB2CAccount.get("min_transaction_amount");
+                String dblMaxTransactionAmount = lhsB2CAccount.get("max_transaction_amount");
+
+                String strProviderBranchCode = MBankingXMLFactory.getXPathValueFromXMLString("/OTHER_DETAILS/DATA/PROVIDER_ACCOUNT_DETAILS/BRANCH_CODE", strProviderOtherDetails);
+                ServiceProviderAccount spaServiceProviderAccount = new ServiceProviderAccount(strProviderCode, strProviderAccountCode, strProviderAccountName, strProviderAccountType, strProviderAccountTypeTag, strProviderAccountIdentifier, strProviderAccountLongTag, strProviderBranchCode, dblMinTransactionAmount, dblMaxTransactionAmount);
+                rVal.add(spaServiceProviderAccount);
+
+            }
+        } catch (Exception e){
+            System.err.println(APIUtils.class.getSimpleName()+"."+new Object() {}.getClass().getEnclosingMethod().getName()+"() ERROR : " + e.getMessage());
+        } finally {
             spManager = null;
         }
 
@@ -978,7 +1017,7 @@ public class APIUtils {
         }
     }
 
-    public static LinkedList<WithdrawalChannel> getActiveWithdrawalChannels(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE applicationType){
+    public static LinkedList<WithdrawalChannel> getActiveWithdrawalChannels(MBankingConstants.ApplicationType applicationType){
         LinkedList<WithdrawalChannel> rVal = new LinkedList<>();
         NodeList nlWithdrawalChannels;
         Node ndChannel;
@@ -1009,13 +1048,12 @@ public class APIUtils {
         }
         return rVal;
     }
-
     public static WithdrawalChannel getWithdrawalChannel(String theChannelName){
         WithdrawalChannel rVal = null;
         LinkedList<WithdrawalChannel> lsActiveWithdrawalChannels;
         try {
             if (theChannelName != null) {
-                lsActiveWithdrawalChannels = getActiveWithdrawalChannels(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE.USSD);
+                lsActiveWithdrawalChannels = getActiveWithdrawalChannels(MBankingConstants.ApplicationType.USSD);
                 for (WithdrawalChannel lsActiveWithdrawalChannel : lsActiveWithdrawalChannels) {
                     String strName = lsActiveWithdrawalChannel.getName();
                     if (strName.equalsIgnoreCase(theChannelName)) {
@@ -1032,8 +1070,8 @@ public class APIUtils {
         return rVal;
     }
 
-    public static LinkedList<LinkedHashMap<String, String>> getStatementPeriods(ke.skyworld.mbanking.pesaapi.APIConstants.APPLICATION_TYPE applicationType){
-        LinkedList<LinkedHashMap<String, String>> rVal = new LinkedList<>();
+    public static LinkedList<HashMap<String, String>> getStatementPeriods(MBankingConstants.ApplicationType applicationType){
+        LinkedList<HashMap<String, String>> rVal = new LinkedList<>();
         NodeList nlStatementPeriods;
         Node ndChannel;
         try {
@@ -1045,7 +1083,7 @@ public class APIUtils {
                     String strStatus = ndChannel.getAttributes().getNamedItem("STATUS").getTextContent();
 
                     if(strStatus.equalsIgnoreCase("ACTIVE")){
-                        LinkedHashMap<String, String> hmStatementPeriods = new LinkedHashMap<String, String>();
+                        HashMap<String, String> hmStatementPeriods = new HashMap<String, String>();
                         for(int j = 0; j < ndChannel.getAttributes().getLength(); j++){
                             String strName = ndChannel.getAttributes().item(j).getNodeName();
                             String strValue = ndChannel.getAttributes().item(j).getTextContent();
@@ -1064,6 +1102,7 @@ public class APIUtils {
         }
         return rVal;
     }
+
 
     public static MemberRegisterResponse fnCheckMemberRegister(String theMobileNumber, RegisterConstants.MemberRegisterType theRegisterType){
         MemberRegisterResponse registerResponse = null;

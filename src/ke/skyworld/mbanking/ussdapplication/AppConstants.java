@@ -7,6 +7,9 @@ public class AppConstants {
     public final static String strSACCOName = "Defence SACCO";
     public final static String strContactUs = "Defence SACCO";
     public final static String strSACCOProductName = "DESACCO";
+    public final static String strAppID = "BjcPLrMschD";
+
+    public final static String strServiceUnavailable = "Sorry, you are currently unable to access this service. Please visit one of our branches or contact us for assistance.\n\nERR_MBM100\n";
 
 //    public final static String strMBankingUSSDCode = "515";
 //    public final static String strMBankingUSSDSubCode = "0";
@@ -23,7 +26,6 @@ public class AppConstants {
 
     public final static String strGeneralMenusUSSDCode = "515";
     public final static String strErroneousUSSDSubCode = "1";
-
 
     public final static String strLiveCollectionAccount = "VEND0061";
     public final static String strExitCollectionAccount = "VEND0058";
@@ -255,7 +257,8 @@ public class AppConstants {
         //ATM_CARDS
         ATM_CARD_ACTION(USSDDataType.MY_ACCOUNT_MENU.getValue() + "-ATM_CARD(ACTION)"),
         ATM_CARD_LIST(USSDDataType.ATM_CARD_ACTION.getValue() + "-ATM_CARD(LIST)"),
-        ATM_CARD_PIN(USSDDataType.ATM_CARD_LIST.getValue() + "-ATM_CARD(PIN)"),
+        ATM_CARD_REASON(USSDDataType.ATM_CARD_LIST.getValue() + "-ATM_CARD(REASON)"),
+        ATM_CARD_PIN(USSDDataType.ATM_CARD_REASON.getValue() + "-ATM_CARD(PIN)"),
         ATM_CARD_CONFIRMATION(USSDDataType.ATM_CARD_PIN.getValue() + "-ATM_CARD(CONFIRMATION)"),
         ATM_CARD_END(USSDDataType.ATM_CARD_CONFIRMATION.getValue() + "-ATM_CARD(END)"),
 
@@ -683,4 +686,112 @@ public class AppConstants {
             "VISCOUNTESS",
             "WING COMMANDER"
     };
+
+    public enum ChargeServices{
+
+        MPESA_WITHDRAWAL("MPESA_WITHDRAWAL"),
+        AIRTIME_PURCHASE("AIRTIME_PURCHASE"),
+        BILL_PAYMENT("BILL_PAYMENT"),
+        TILL_PAYMENT("TILL_PAYMENT"),
+        BANK_TRANSFER("BANK_TRANSFER"),
+        PESALINK("PESALINK"),
+        IFT_ACCOUNT_TO_ACCOUNT("IFT_ACCOUNT_TO_ACCOUNT"),
+        DEPOSIT("DEPOSIT"),
+        SINGLE_ACCOUNT_BALANCE_ENQUIRY("SINGLE_ACCOUNT_BALANCE_ENQUIRY"),
+        ACCOUNT_MINI_STATEMENT("ACCOUNT_MINI_STATEMENT"),
+        ACCOUNT_FULL_STATEMENT("ACCOUNT_FULL_STATEMENT"),
+        LOAN_BALANCE_ENQUIRY("LOAN_BALANCE_ENQUIRY"),
+        LOAN_MINI_STATEMENT("LOAN_MINI_STATEMENT"),
+        LOAN_FULL_STATEMENT("LOAN_FULL_STATEMENT"),
+        LOAN_APPLICATION("LOAN_APPLICATION"),
+        DIVIDENDS_CAPITALIZATION("DIVIDENDS_CAPITALIZATION"),
+        IFT_LOAN_REPAYMENT("IFT_LOAN_REPAYMENT"),
+        CHECK_LOAN_LIMIT("CHECK_LOAN_LIMIT"),
+        GUARANTORSHIP_ABILITY_ENQUIRY("GUARANTORSHIP_ABILITY_ENQUIRY");
+
+        private final String strValue;
+
+        ChargeServices(String theValue) {
+            this.strValue = theValue;
+        }
+
+        public String getValue() {
+            return strValue;
+        }
+
+    }
+
+    public enum MobileBankingServices {
+        BALANCE_ENQUIRY("BALANCE_ENQUIRY"),
+        ACCOUNT_STATEMENT("ACCOUNT_STATEMENT"),
+        DEPOSIT_VIA_MPESA("DEPOSIT_VIA_MPESA"),
+        WITHDRAWAL_VIA_MPESA("WITHDRAWAL_VIA_MPESA"),
+        BANK_TRANSFER("BANK_TRANSFER"),
+        UTILITY_PAYMENTS("UTILITY_PAYMENTS"),
+        BUY_AIRTIME("BUY_AIRTIME"),
+        INTERNAL_FUNDS_TRANSFER("INTERNAL_FUNDS_TRANSFER"),
+        LOAN_QUALIFICATION("LOAN_QUALIFICATION"),
+        LOAN_APPLICATION("LOAN_APPLICATION"),
+        LOAN_REPAYMENT("LOAN_REPAYMENT"),
+        LOAN_STATEMENT("LOAN_STATEMENT"),
+        LOAN_BALANCE("LOAN_BALANCE");
+
+        private final String strValue;
+
+        MobileBankingServices(String theValue) {
+            this.strValue = theValue;
+        }
+
+        public String getValue() {
+            return strValue;
+        }
+
+    }
+
+    public enum MobileBankingChannel {
+        USSD("USSD"),
+        MAPP("MAPP");
+
+        private final String strValue;
+
+        MobileBankingChannel(String theValue) {
+            this.strValue = theValue;
+        }
+
+        public String getValue() {
+            return strValue;
+        }
+
+    }
+
+    public enum MobileMandates{
+        BALANCE_ENQUIRY("BALANCE_ENQUIRY"),
+        ACCOUNT_STATEMENT("ACCOUNT_STATEMENT"),
+        DEPOSIT("DEPOSIT"),
+        WITHDRAWAL("WITHDRAWAL"),
+        INTERNAL_TRANSFER("INTERNAL_TRANSFER"),
+        BANK_TRANSFER("BANK_TRANSFER"),
+        UTILITY_PAYMENTS("UTILITY_PAYMENTS"),
+        BUY_AIRTIME("BUY_AIRTIME"),
+        LOAN_QUALIFICATION("LOAN_QUALIFICATION"),
+        LOAN_APPLICATION("LOAN_APPLICATION"),
+        LOAN_REPAYMENT("LOAN_REPAYMENT"),
+        LOAN_STATEMENT("LOAN_STATEMENT"),
+        LOAN_BALANCE("LOAN_BALANCE"),
+        LOAN_GUARANTORSHIP("LOAN_GUARANTORSHIP"),
+        MEMBER_ONBOARDING("MEMBER_ONBOARDING");
+
+        private final String strValue;
+
+        MobileMandates(String theValue) {
+            this.strValue = theValue;
+        }
+
+        public String getValue() {
+            return strValue;
+        }
+
+    }
+
+
 }

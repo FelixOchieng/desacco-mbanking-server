@@ -1,11 +1,15 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
 import ke.skyworld.lib.mbanking.utils.Utils;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
+import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
 import java.util.ArrayList;
@@ -66,13 +70,41 @@ public interface ATMCardMenus {
                 }
                 case "LIST": {
                     String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_LIST.name());
+                    System.out.println("strUserInput in LIST: "+strUserInput);
 
                     if (!strUserInput.equals("")) {
-                        String strResponse = strHeader + "\nEnter your PIN:";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.ATM_CARD_PIN, USSDConstants.USSDInputType.STRING, "NO");
+                        String strCardType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_LIST.name());
+                        HashMap<String, String> hmCardType = Utils.toHashMap(strCardType);
+                        String strCardStatus = hmCardType.get("cardStatus");
+                        String strCardIsLinked = hmCardType.get("isLinked");
+
+                        if(strCardStatus.equals("Active") && strCardIsLinked.equals("true")){
+                            String strResponse = strHeader + "\nEnter your reason for deactivating the card:";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.ATM_CARD_REASON, USSDConstants.USSDInputType.STRING, "NO");
+
+                        }else {
+                            String strResponse = strHeader + "\nThis card is not active or not linked to your account.";
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<>();
+                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.ATM_CARD_END, "NO",theArrayListUSSDSelectOption);
+                        }
+
                     } else {
                         strHeader = "ATM Cards\n{Select a valid ATM card}";
                         theUSSDResponse = GeneralMenus.displayMenu_ATMCards(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.ALL, AppConstants.USSDDataType.ATM_CARD_LIST);
+                    }
+                    break;
+                }
+
+                case "REASON": {
+                    String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_REASON.name());
+
+                    if (strUserInput.matches("^(?:\\S+\\s+){2}\\S+.*$")) {
+                        String strResponse = strHeader + "\nEnter your PIN:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.ATM_CARD_PIN, USSDConstants.USSDInputType.STRING, "NO");
+                    } else {
+                        strHeader = strHeader + "\n{MUST be 3 or more words}\nEnter your reason for deactivating the card:";
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.ATM_CARD_REASON, USSDConstants.USSDInputType.STRING, "NO");
                     }
                     break;
                 }
@@ -82,10 +114,9 @@ public interface ATMCardMenus {
                     if (strLoginPIN.equals(strPIN)) {
                         String strCardType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_LIST.name());
                         HashMap<String, String> hmCardType = Utils.toHashMap(strCardType);
-                        String strCardID = hmCardType.get("ID");
-                        String strCardName = hmCardType.get("NAME");
+                        String strCardNumber = hmCardType.get("cardNumber");
 
-                        String strResponse = "My ATM Cards\nConfirm " + strShortHeader + "\nATM Card: " + strCardName+ "\n";
+                        String strResponse = "My ATM Cards\nConfirm " + strShortHeader + "\nATM Card: " + strCardNumber+ "\n";
 
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -99,26 +130,44 @@ public interface ATMCardMenus {
                 case "CONFIRMATION": {
                     String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_CONFIRMATION.name());
 
+                    String strUserInput = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_REASON.name());
+
+
+                    String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+                    HashMap<String, String> userIdentifierDetails = APIUtils.getUserIdentifierDetails(strMobileNumber);
+                    String strIdentifierType = userIdentifierDetails.get("identifier_type");
+                    String strIdentifier = userIdentifierDetails.get("identifier");
                     switch (strConfirmation){
                         case "YES":{
-                            String strResponse;
+                            String strCardType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_LIST.name());
+                            System.out.println("strCardType in YES: " + strCardType);
+                            HashMap<String, String> hmCardType = Utils.toHashMap(strCardType);
+                            String strCardID = hmCardType.get("cardId");
+                            System.out.println("strCardID in YES: " + strCardID);
 
-                            APIConstants.TransactionReturnVal rVal = theUSSDAPI.manageATMCard(theUSSDRequest);
 
-                            switch (rVal) {
-                                case SUCCESS: {
-                                    strResponse = strHeader+"\nYour request was completed successfully.\nSelect an option below to proceed.\n";
-                                    break;
-                                }
-                                case ERROR: {
-                                    strResponse = strHeader+"\nAn error occurred, please try again.\n";
-                                    break;
-                                }
-                                default: {
-                                    strResponse = strHeader+"\nSorry, this service is not available at the moment. Please try again.\n";
-                                    break;
-                                }
+//                            APIConstants.TransactionReturnVal rVal = theUSSDAPI.manageATMCard(theUSSDRequest);
+                            TransactionWrapper<FlexicoreHashMap> result  = CBSAPI.delinkATMCard(strMobileNumber, strIdentifierType, strIdentifier, strCardID, strUserInput);
+
+                            if (result.hasErrors()) {
+                                System.err.println("Error occurred: " + result.getErrors());
+                                FlexicoreHashMap errorData = result.getSingleRecord();
+                                String displayMessage = errorData.getStringValue("display_message");
+                                System.err.println("Display Message: " + displayMessage);
+                            } else {
+                                FlexicoreHashMap responseData = result.getSingleRecord();
+                                String status = responseData.getStringValue("status");
+                                String statusDescription = responseData.getStringValue("status_description");
+                                String displayMessage = responseData.getStringValue("display_message");
+
+                                System.out.println("Status: " + status);
+                                System.out.println("Status Description: " + statusDescription);
+                                System.out.println("Display Message: " + displayMessage);
                             }
+
+
+
+                            String strResponse = strHeader + "\nYour request was completed successfully.\nSelect an option below to proceed.\n";
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -135,10 +184,8 @@ public interface ATMCardMenus {
                         default:{
                             String strCardType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.ATM_CARD_LIST.name());
                             HashMap<String, String> hmCardType = Utils.toHashMap(strCardType);
-                            String strCardID = hmCardType.get("ID");
-                            String strCardName = hmCardType.get("NAME");
-
-                            String strResponse = "My ATM Cards\nConfirm " + strShortHeader + "\n{Select a valid menu}\nATM Card: " + strCardName+ "\n";
+                            String strCardNumber = hmCardType.get("cardNumber");
+                            String strResponse = "My ATM Cards\nConfirm " + strShortHeader + "\n{Select a valid menu}\nATM Card: " + strCardNumber+ "\n";
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);

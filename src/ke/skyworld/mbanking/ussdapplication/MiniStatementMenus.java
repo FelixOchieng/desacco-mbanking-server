@@ -1,9 +1,12 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 
@@ -22,6 +25,22 @@ public interface MiniStatementMenus {
 
             switch (theParam){
                 case "MENU": {
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.ACCOUNT_STATEMENT);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader+"\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+
+                    }else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.ACCOUNT_STATEMENT)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader+"\n"+AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
                     strHeader = "Mini Statement";
                     theUSSDResponse = GeneralMenus.displayMenu_AccountTypes(theUSSDRequest, theParam, strHeader, AppConstants.USSDDataType.MY_ACCOUNT_MINI_STATEMENT_ACCOUNT_TYPE);
                     break;
@@ -225,11 +244,36 @@ public interface MiniStatementMenus {
                     if(strLoginPIN.equals(strPIN)){
                         String strResponse = "Dear member, your "+strHeader+" request has been received successfully. Please wait shortly as it's being processed.\n";
 
-                        Thread worker = new Thread(() -> {
-                            APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.accountMiniStatement(theUSSDRequest, theAccountType);
-                            System.out.println("accountMiniStatement: "+transactionReturnVal.getValue());
-                        });
-                        worker.start();
+
+                        if(theAccountType == APIConstants.AccountType.LOAN){
+                            Thread worker = new Thread(() -> {
+                                TransactionWrapper<FlexicoreHashMap> transactionReturnVal = theUSSDAPI.loanMiniStatement(theUSSDRequest);
+                                if (transactionReturnVal.hasErrors()) {
+                                    FlexicoreHashMap accountMiniStatementMap = transactionReturnVal.getSingleRecord();
+                                    String strErrorMessage = accountMiniStatementMap.getValue("cbs_api_return_val").toString() + "\n";
+                                    strErrorMessage += accountMiniStatementMap.getStringValue("display_message");
+
+                                    System.err.println("MiniStatementMenus.displayMenu_MiniStatement() - Response " + strErrorMessage);
+                                }
+                            });
+                                    worker.start();
+
+                        }
+
+                        if(theAccountType.equals(APIConstants.AccountType.FOSA) || theAccountType.equals(APIConstants.AccountType.BOSA)){
+                            Thread worker = new Thread(() -> {
+                                TransactionWrapper<FlexicoreHashMap> transactionReturnVal = theUSSDAPI.accountMiniStatement(theUSSDRequest);
+                                if (transactionReturnVal.hasErrors()) {
+                                    FlexicoreHashMap accountMiniStatementMap = transactionReturnVal.getSingleRecord();
+                                    String strErrorMessage = accountMiniStatementMap.getValue("cbs_api_return_val").toString() + "\n";
+                                    strErrorMessage += accountMiniStatementMap.getStringValue("display_message");
+
+                                    System.err.println("MiniStatementMenus.displayMenu_MiniStatement() - Response " + strErrorMessage);
+                                }
+                            });
+                            worker.start();
+                        }
+
 
                         ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
                         USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);

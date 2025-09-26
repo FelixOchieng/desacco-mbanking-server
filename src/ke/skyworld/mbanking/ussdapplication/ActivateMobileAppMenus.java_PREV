@@ -1,12 +1,15 @@
 package ke.skyworld.mbanking.ussdapplication;
 
+import ke.skyworld.lib.mbanking.core.MBankingConstants;
+import ke.skyworld.lib.mbanking.core.MBankingUtils;
+import ke.skyworld.lib.mbanking.mapp.MAPPConstants;
+import ke.skyworld.mbanking.mappapi.MAPPAPI;
 import ke.skyworld.lib.mbanking.msg.MSGConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
-import ke.skyworld.mbanking.mappapi.MAPPAPI;
+import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
-import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 
 import java.util.ArrayList;
 
@@ -19,7 +22,7 @@ public interface ActivateMobileAppMenus {
 
         try{
             String strHeader = "Mobile App";
-            USSDAPIConstants.AccountType accountType = USSDAPIConstants.AccountType.ALL;
+            APIConstants.AccountType accountType = APIConstants.AccountType.ALL;
 
             switch (theParam){
                 case "MENU": {
@@ -75,7 +78,7 @@ public interface ActivateMobileAppMenus {
                             String strResponse = "";
                             String strMobileNo = String.valueOf(theUSSDRequest.getUSSDMobileNo());
                             String strSessionID = Long.toString(theUSSDRequest.getUSSDSessionID());
-                            strSessionID = "USSD_"+strSessionID;
+                            strSessionID = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD,theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
 
                             if (strAction.equalsIgnoreCase("ACTIVATE_MOBILE_APP")) {
                                 strResponse = theUSSDAPI.generateAndSendOTP(strMobileNo, strSessionID, theUSSDRequest);
@@ -87,7 +90,7 @@ public interface ActivateMobileAppMenus {
                                     String strCategory = "MAPP_DEACTIVATION";
                                     MAPPAPI theMAPPAPI = new MAPPAPI();
 
-                                    USSDAPIConstants.TransactionReturnVal theResponseStatus = theUSSDAPI.deactivateMobileApp(theUSSDRequest);
+                                    MAPPConstants.ResponseStatus theResponseStatus = theMAPPAPI.deactivateMobileApp(theUSSDRequest.getUSSDMobileNo());
                                     theMAPPAPI = null;
 
                                     switch (theResponseStatus){
@@ -96,6 +99,7 @@ public interface ActivateMobileAppMenus {
                                             break;
                                         }
                                         case ERROR:
+                                        case FAILED:
                                         default:{
                                             strMSG = "Dear member, your request to DISABLE Mobile App has FAILED. Please try again. If disabling Mobile App fails again, contact the SACCO for assistance.";
                                             break;
@@ -111,7 +115,7 @@ public interface ActivateMobileAppMenus {
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.MAPP_ACTIVATION_END, "NO", theArrayListUSSDSelectOption);
                             break;
                         }
                         case "NO": {

@@ -1,5 +1,7 @@
 package ke.skyworld.mbanking.mbankingapi;
 
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.co.skyworld.smp.query_manager.connection_manager.enums.CMTimeUnit;
 import ke.co.skyworld.smp.query_repository.Repository;
 import ke.co.skyworld.smp.utility_items.Constants;
@@ -13,9 +15,12 @@ import ke.skyworld.lib.mbanking.mapp.MAPPLocalParameters;
 import ke.skyworld.lib.mbanking.msg.MSGConstants;
 import ke.skyworld.lib.mbanking.msg.MSGLocalParameters;
 import ke.skyworld.lib.mbanking.msg.MSGProcessor;
+import ke.skyworld.lib.mbanking.pesa.PESA;
+import ke.skyworld.lib.mbanking.pesa.PESAConstants;
 import ke.skyworld.mbanking.nav.Navision;
 import ke.skyworld.mbanking.nav.NavisionAgency;
 import ke.skyworld.mbanking.nav.NavisionUtils;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.nav.cbs.DeSaccoCBS;
 import ke.skyworld.mbanking.nav.cbs.DeSaccoCBSParams;
 import ke.skyworld.mbanking.nav.services.cbs.*;
@@ -96,12 +101,21 @@ public class MBankingAPI {
 
             DeSaccoCBSParams.initialize();
 
+
+            /*TransactionWrapper memberDetailsWrapper = DeSaccoCBS.getMemberDetails("MSISDN", "254712576168");
+            FlexicoreHashMap memberDetails = memberDetailsWrapper.getSingleRecord();
+            memberDetails.printRecordVerticalLabelled();*/
+
+
             ScheduledThreadPoolExecutor executor = new ScheduledThreadPoolExecutor(1);
             executor.scheduleWithFixedDelay(() -> {
-                System.out.println("Making CBS API - CALL SERVICE");
+               // System.out.println("Making CBS API - CALL SERVICE");
                 DeSaccoCBS.callBC365Service("WITHDRAWAL");
+                DeSaccoCBS.callBC365Service("MPESA_DEPOSITS");
+                DeSaccoCBS.callBC365Service("LOAN_REPAYMENT");
                 DeSaccoCBS.callBC365Service("MOBILE_LOAN_DISBURSEMENT");
-                System.out.println("Done Making CBS API - CALL SERVICE");
+                DeSaccoCBS.callBC365Service("INTERNAL");
+               // System.out.println("Done Making CBS API - CALL SERVICE");
             }, 5, 5, TimeUnit.SECONDS);
 
             ScheduledThreadPoolExecutor bcService = new ScheduledThreadPoolExecutor(1);
@@ -180,17 +194,17 @@ public class MBankingAPI {
         return rVal;
     }
 
-    public static NodeList getNodeListFromLocalParams(APIConstants.APPLICATION_TYPE theApplicationType, String thePath) {
+    public static NodeList getNodeListFromLocalParams(MBankingConstants.ApplicationType theApplicationType, String thePath) {
         NodeList rVal = null;
         try {
             String strConfigXML = "";
-            if (theApplicationType == APIConstants.APPLICATION_TYPE.PESA) {
+            if (theApplicationType == MBankingConstants.ApplicationType.PESA) {
                 strConfigXML = PESALocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MSG) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.MSG) {
                 strConfigXML = MSGLocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.MAPP) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.MAPP) {
                 strConfigXML = MAPPLocalParameters.getClientXMLParameters();
-            } else if (theApplicationType == APIConstants.APPLICATION_TYPE.USSD) {
+            } else if (theApplicationType == MBankingConstants.ApplicationType.USSD) {
                 strConfigXML = USSDLocalParameters.getClientXMLParameters();
             }
 

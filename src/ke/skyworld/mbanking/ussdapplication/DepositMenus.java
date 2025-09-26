@@ -4,6 +4,7 @@ import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
 import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingUtils;
+import ke.skyworld.mbanking.nav.cbs.CBSAPI;
 import ke.skyworld.mbanking.pesaapi.PESAAPI;
 import ke.skyworld.mbanking.pesaapi.PesaParam;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
@@ -34,6 +35,23 @@ public interface DepositMenus {
             switch (theParam) {
                 //Home->Deposit->Category->Account / Account Number->Amount->Confirmation
                 case "MENU": {
+                    FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.DEPOSIT_VIA_MPESA);
+                    String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                    if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Deposit\n" + getServiceStatusDetails.getStringValue("display_message"));
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.DEPOSIT_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.DEPOSIT)) {
+                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Deposit\n" + AppConstants.strServiceUnavailable);
+                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.DEPOSIT_END, "NO", theArrayListUSSDSelectOption);
+                        return theUSSDResponse;
+                    }
+
+
                     ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                     strHeader += "Select Deposit Option";
                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader);

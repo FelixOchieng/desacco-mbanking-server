@@ -263,32 +263,33 @@ public interface HomeMenus {
                             FlexicoreHashMap memberDetailsMap = memberDetailsWrapper.getSingleRecord();
 
                             if (memberDetailsMap.getStringValue("service_no").equals(strServiceNumber)) {
-                                InMemoryCache.store(theUSSDRequest.getUSSDMobileNo() + "_RESET_PIN_MEMBER", memberDetailsMap, 600);
+                                if(memberDetailsMap.getStringValue("primary_mobile_number").equalsIgnoreCase(String.valueOf(theUSSDRequest.getUSSDMobileNo()))){
+                                    InMemoryCache.store(theUSSDRequest.getUSSDMobileNo() + "_RESET_PIN_MEMBER", memberDetailsMap, 600);
 
-                                strResponse = "Reset PIN\nEnter your National ID Number:";
-                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_KYC_NATIONAL_ID, USSDConstants.USSDInputType.STRING, "NO");
+                                    strResponse = "Reset PIN\nEnter your National ID Number:";
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_KYC_NATIONAL_ID, USSDConstants.USSDInputType.STRING, "NO");
+                                }else{
+                                    strResponse = "Reset PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
+                                }
 
                             } else {
                                 strResponse = "Reset PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
                                 break;
                             }
-
-
                         }else{
                             if (memberDetailsWrapper.getSingleRecord().getStringValue("request_status").equalsIgnoreCase("NOT_FOUND")) {
                                 strResponse = "Reset PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
                             } else {
-                                strResponse = " Pin Reset\nSorry, an error occurred while processing your request. Please try again later:";
+                                strResponse = "Reset PIN\nSorry, an error occurred while processing your request. Please try again later:";
 
                                 ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.RESET_PIN_END, "NO", theArrayListUSSDSelectOption);
                             }
                         }
-
-
                     } else {
                         strResponse = "Reset PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.RESET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
@@ -311,19 +312,27 @@ public interface HomeMenus {
                             String strIdNumber = member.getStringValue("primary_identity_no");
 
                             if(strIdNumber != null && strIDNo.equalsIgnoreCase(strIdNumber)){
-                                strResponse = "Dear Customer your PIN reset request has been received.\nPlease enter your M-PESA PIN in the next menu:";
+                                strResponse = "Dear Customer your PIN reset request has been received.\nPlease enter your M-PESA PIN in the next menu";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralDisplay(theUSSDRequest, strResponse, "NO");
 
                                 String strBeneficiaryMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
                                 String strReference = strBeneficiaryMobileNo;
-                                double dbAmount = Utils.stringToDouble("15.0");
 
-                                String strMemberName = APIUtils.shortenMemberName(String.valueOf(theUSSDRequest.getUSSDMobileNo()));
+                                //double dbAmount = Utils.stringToDouble("15.0");
+
+                                String strTrailerMessageXML = SystemParameters.getParameter(AppConstants.strSettingParamName);
+                                Document document = XmlUtils.parseXml(strTrailerMessageXML);
+                                double dbSelfPinResetAmount = Utils.stringToDouble(XmlUtils.getTagValue(document, "/MBANKING_SETTINGS/SELF_PIN_RESET_AMOUNT"));
+
+                                System.out.println("THE AMOUNT: "+ dbSelfPinResetAmount);
+
+                                String strMemberName = APIUtils.shortenMemberNameProvidedName(member.getStringValue("full_name"));
+                                System.out.println("THE MEMBER NAME: "+ strMemberName);
                                 String strTraceID = theUSSDRequest.getUSSDTraceID();
 
                                 String strAccountNumber = "For PIN Reset"; //AppConstants.strLiveCollectionAccount;
 
-                                InMemoryCache.store(strMobileNumber + "-PIN-RESET-" + strAccountNumber, dbAmount, -1);
+                                InMemoryCache.store(strMobileNumber + "-PIN-RESET-" + strAccountNumber, dbSelfPinResetAmount, 400);
 
                                 Thread worker = new Thread(() -> {
 
@@ -333,14 +342,14 @@ public interface HomeMenus {
                                             strMemberName,
                                             strTraceID,
                                             "USSD",
-                                            strAccountNumber,
+                                            String.valueOf(theUSSDRequest.getUSSDMobileNo()),
                                             strMemberName,
                                             "MBANKING_SERVER",
                                             strReference,
                                             strBeneficiaryMobileNo,
                                             strMemberName,
                                             strAccountNumber,
-                                            dbAmount,
+                                            dbSelfPinResetAmount,
                                             "PIN_RESET");
                                 });
                                 worker.start();
@@ -369,7 +378,7 @@ public interface HomeMenus {
                 default: {
                     System.err.println("theAppMenus.displayMenu_ResetPin() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
-                    strResponse = "Privacy Statement\n{Sorry, an error has occurred while processing Privacy Statement}\n";
+                    strResponse = "Reset PIN\n{Sorry, an error has occurred while processing Reset PIN}\n";
                     ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                     //LINK OPTION
@@ -381,7 +390,8 @@ public interface HomeMenus {
             }
 
         } catch (Exception e) {
-            System.err.println("theAppMenus.displayMenu_TermsAndConditions() ERROR : " + e.getMessage());
+            System.err.println("theAppMenus.displayMenu_ResetPin() ERROR : " + e.getMessage());
+            e.printStackTrace();
         } finally {
             theUSSDAPI = null;
             theAppMenus = null;
@@ -692,6 +702,7 @@ public interface HomeMenus {
 
         } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_TermsAndConditions() ERROR : " + e.getMessage());
+            e.printStackTrace();
         } finally {
             theUSSDAPI = null;
             theAppMenus = null;
@@ -749,11 +760,11 @@ public interface HomeMenus {
                         break;
                     }
                     case "M_BOOSTA_LOAN": {
-                        theUSSDResponse = theAppMenus.displayMenu_LoanApplication(theUSSDRequest, "TYPE", "126");
+                        theUSSDResponse = theAppMenus.displayMenu_LoanApplication(theUSSDRequest, "TYPE", "126"); //FIXME: these look like HCS Loans!😯
                         break;
                     }
                     case "DIVIDEND_ADVANCE_LOAN": {
-                        theUSSDResponse = theAppMenus.displayMenu_LoanApplication(theUSSDRequest, "TYPE", "136");
+                        theUSSDResponse = theAppMenus.displayMenu_LoanApplication(theUSSDRequest, "TYPE", "136"); //FIXME: these look like HCS Loans!😯
                         break;
                     }
                     default: {

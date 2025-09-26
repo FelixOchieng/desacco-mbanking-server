@@ -4,10 +4,12 @@ import ke.co.skyworld.smp.authentication_manager.MobileBankingCryptography;
 import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
 import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
 import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
+import ke.co.skyworld.smp.utility_items.memory.InMemoryCache;
 import ke.skyworld.lib.mbanking.ussd.USSDConstants;
 import ke.skyworld.lib.mbanking.ussd.USSDRequest;
 import ke.skyworld.lib.mbanking.ussd.USSDResponse;
 import ke.skyworld.lib.mbanking.ussd.USSDResponseSELECTOption;
+import ke.skyworld.mbanking.nav.cbs.DeSaccoCBS;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
 import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
@@ -16,6 +18,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -197,8 +200,37 @@ public interface SetPINMenus {
                 case "SERVICE_NO": {
                     String strIDNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.SET_PIN_SERVICE_NO.name());
                     if (strIDNo.matches("^[0-9]{1,15}$")) {
-                        String strResponse = "Set PIN\nEnter your National ID Number:";
-                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_ID_NO, USSDConstants.USSDInputType.STRING, "NO");
+                        TransactionWrapper memberDetailsWrapper = DeSaccoCBS.getMemberDetails("SERVICE_NO", strIDNo);
+
+                        if (!memberDetailsWrapper.hasErrors()) {
+                            FlexicoreHashMap memberDetailsMap = memberDetailsWrapper.getSingleRecord();
+
+                            if (memberDetailsMap.getStringValue("service_no").equals(strIDNo)) {
+                                if (memberDetailsMap.getStringValue("primary_mobile_number").equalsIgnoreCase(String.valueOf(theUSSDRequest.getUSSDMobileNo()))) {
+                                    String strResponse = "Set PIN\nEnter your National ID Number:";
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_ID_NO, USSDConstants.USSDInputType.STRING, "NO");
+                                } else {
+                                    String strResponse = "Set PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
+                                    theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
+                                }
+
+                            } else {
+                                String strResponse = "Set PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
+                                break;
+                            }
+                        } else {
+                            if (memberDetailsWrapper.getSingleRecord().getStringValue("request_status").equalsIgnoreCase("NOT_FOUND")) {
+                                String strResponse = "Set PIN\n{Account Not Found}\nEnter your Service Number:";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
+                            } else {
+                                String strResponse = "Set PIN\nSorry, an error occurred while processing your request. Please try again later:";
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.SET_PIN_END, "NO", theArrayListUSSDSelectOption);
+                            }
+                        }
+
                     } else {
                         String strResponse = "Set PIN\n{Please enter a valid Service Number}\nEnter your Service Number:";
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_SERVICE_NO, USSDConstants.USSDInputType.STRING, "NO");
@@ -306,9 +338,14 @@ public interface SetPINMenus {
                                     } else if (hasUsedPinBefore) {
                                         strResponse = "Set PIN\n{Please provide a new PIN that you have not used before}\nEnter your new PIN:";
                                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_NEW_PIN, USSDConstants.USSDInputType.STRING, "NO");
-
                                     } else {
-                                        if (strIDNewPIN.equals("1234") || strIDNewPIN.equals("4321") || strIDNewPIN.equals("2345") || strIDNewPIN.equals("3456") || strIDNewPIN.equals("4567") || strIDNewPIN.equals("5678") || strIDNewPIN.equals("6789")) {
+                                        if (strIDNewPIN.equals("1234")
+                                                || strIDNewPIN.equals("4321")
+                                                || strIDNewPIN.equals("2345")
+                                                || strIDNewPIN.equals("3456")
+                                                || strIDNewPIN.equals("4567")
+                                                || strIDNewPIN.equals("5678")
+                                                || strIDNewPIN.equals("6789")) {
                                             strResponse = "{Your PIN is not complex enough}\nEnter your new PIN:";
                                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_NEW_PIN, USSDConstants.USSDInputType.STRING, "NO");
                                         } else {
@@ -319,10 +356,8 @@ public interface SetPINMenus {
                                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.SET_PIN_NEW_PIN, USSDConstants.USSDInputType.STRING, "NO");
                                             }
                                         }
-
                                     }
                                 }
-
                             } catch (Exception e) {
                                 System.out.println(e.getMessage());
                                 e.printStackTrace();

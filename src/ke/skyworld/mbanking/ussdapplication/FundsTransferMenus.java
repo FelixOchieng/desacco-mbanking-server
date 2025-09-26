@@ -1,7 +1,12 @@
 package ke.skyworld.mbanking.ussdapplication;
 
 
-
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreArrayList;
+import ke.co.skyworld.smp.query_manager.beans.FlexicoreHashMap;
+import ke.co.skyworld.smp.query_manager.beans.TransactionWrapper;
+import ke.co.skyworld.smp.query_manager.util.SystemParameters;
+import ke.co.skyworld.smp.utility_items.Misc;
+import ke.co.skyworld.smp.utility_items.data_formatting.XmlUtils;
 import ke.skyworld.lib.mbanking.core.MBankingConstants;
 import ke.skyworld.lib.mbanking.core.MBankingUtils;
 import ke.skyworld.lib.mbanking.pesa.PESAConstants;
@@ -17,9 +22,12 @@ import ke.skyworld.mbanking.pesaapi.PesaParam;
 import ke.skyworld.mbanking.ussdapi.APIConstants;
 import ke.skyworld.mbanking.ussdapi.APIUtils;
 import ke.skyworld.mbanking.ussdapi.USSDAPI;
+import ke.skyworld.mbanking.ussdapi.USSDAPIConstants;
 import ke.skyworld.sp.manager.SPManager;
 import ke.skyworld.sp.manager.SPManagerConstants;
+import org.w3c.dom.Document;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.util.*;
 
 public interface FundsTransferMenus {
@@ -34,27 +42,59 @@ public interface FundsTransferMenus {
             String strLastKey = (String) theUSSDRequest.getUSSDData().keySet().toArray()[theUSSDRequest.getUSSDData().size() - 1];
             //String strLastValue = (String) theUSSDRequest.getUSSDData().values().toArray()[theUSSDRequest.getUSSDData().size() -1];
 
-            if(strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.MAIN_IN_MENU.name())) {
+            if (strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.MAIN_IN_MENU.name())) {
                 String strHeader = "Funds Transfer\nSelect Funds Transfer option\n";
                 theUSSDResponse = getFundsTransferOptions(theUSSDRequest, strHeader);
 
-            }else {
+            } else {
                 AppConstants.USSDDataType ussdDataType = AppUtils.getUSSDDataTypeFromValue(theUSSDRequest.getUSSDDataType());
 
-                switch (ussdDataType){
-                    case FUNDS_TRANSFER_MENU:{
+                switch (ussdDataType) {
+                    case FUNDS_TRANSFER_MENU: {
                         String strFundsTransferOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_MENU.name());
                         if (strFundsTransferOption.equalsIgnoreCase("FUNDS_TRANSFER_INTERNAL")) {
+                            FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.INTERNAL_FUNDS_TRANSFER);
+                            String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                            if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Internal Funds Transfer\n" + getServiceStatusDetails.getStringValue("display_message"));
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                return theUSSDResponse;
+
+                            } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.INTERNAL_TRANSFER)) {
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Internal Funds Transfer\n" + AppConstants.strServiceUnavailable);
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                return theUSSDResponse;
+                            }
+
                             theUSSDResponse = displayMenu_FundTransferInternal(theUSSDRequest, theParam);
-                        }else if (strFundsTransferOption.equalsIgnoreCase("FUNDS_TRANSFER_EXTERNAL")) {
+                        } else if (strFundsTransferOption.equalsIgnoreCase("FUNDS_TRANSFER_EXTERNAL")) {
+                            FlexicoreHashMap getServiceStatusDetails = CBSAPI.getServiceStatusDetails(AppConstants.MobileBankingChannel.USSD, AppConstants.MobileBankingServices.BANK_TRANSFER);
+                            String strServiceStatus = getServiceStatusDetails.getStringValue("status");
+
+                            if (!strServiceStatus.equalsIgnoreCase("ACTIVE")) {
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "External Funds Transfer\n" + getServiceStatusDetails.getStringValue("display_message"));
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                return theUSSDResponse;
+
+                            } else if (CBSAPI.isMandateInactive(theUSSDRequest.getUSSDMobileNo(), AppConstants.MobileMandates.BANK_TRANSFER)) {
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "External Funds Transfer\n" + AppConstants.strServiceUnavailable);
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                return theUSSDResponse;
+                            }
+
                             theUSSDResponse = displayMenu_FundTransferExternal(theUSSDRequest, theParam);
-                        }else {
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid Funds Transfer option}\n";
                             theUSSDResponse = getFundsTransferOptions(theUSSDRequest, strHeader);
                         }
                         break;
                     }
-                    default:{
+                    default: {
                         System.err.println("theAppMenus.displayMenu_FundTransfer() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
                         String strResponse = "Funds Transfer\n{Sorry, an error has occurred while processing your request}";
@@ -66,18 +106,16 @@ public interface FundsTransferMenus {
                 }
 
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_FundTransfer() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
 
     }
 
-    default USSDResponse getFundsTransferOptions(USSDRequest theUSSDRequest, String theHeader) {
+   /* default USSDResponse getFundsTransferOptions(USSDRequest theUSSDRequest, String theHeader) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         final USSDAPI theUSSDAPI = new USSDAPI();
@@ -98,22 +136,52 @@ public interface FundsTransferMenus {
         }
         return theUSSDResponse;
     }
+*/
+
+    default USSDResponse getFundsTransferOptions(USSDRequest theUSSDRequest, String theHeader) {
+        USSDResponse theUSSDResponse = null;
+        AppMenus theAppMenus = new AppMenus();
+        final USSDAPI theUSSDAPI = new USSDAPI();
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<>();
+
+            int intOptionMenu = 1;
+
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(intOptionMenu), "FUNDS_TRANSFER_INTERNAL", (intOptionMenu++) + ": " + AppConstants.strSACCOName + " Account");
+
+            String strFundsTransferXML = SystemParameters.getParameter(AppConstants.strSettingParamName);
+            Document document = XmlUtils.parseXml(strFundsTransferXML);
+
+            String strCheckEmployerRestriction = XmlUtils.getTagValue(document, "/MBANKING_SETTINGS/EXTERNAL_FUNDS_TRANSFER/@ENABLED");
+
+            if (strCheckEmployerRestriction.equalsIgnoreCase("YES")) {
+                USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, String.valueOf(intOptionMenu), "FUNDS_TRANSFER_EXTERNAL", (intOptionMenu++) + ": Other Bank Account");
+            }
+
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_MENU, "NO", theArrayListUSSDSelectOption);
+        } catch (Exception e) {
+            System.err.println("theAppMenus.getFundsTransferOptions() ERROR : " + e.getMessage());
+        } finally {
+            theAppMenus = null;
+        }
+        return theUSSDResponse;
+    }
 
     default USSDResponse getMODBillTypes(USSDRequest theUSSDRequest, String theHeader) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
         final USSDAPI theUSSDAPI = new USSDAPI();
-        try{
-            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
 
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "DOD_CAU", "1: DOD Cau");
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "EMBAKASI", "2: Embakasi");
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.PAY_MOD_BILLS_TYPE, "NO",theArrayListUSSDSelectOption);
-        }catch(Exception e){
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.PAY_MOD_BILLS_TYPE, "NO", theArrayListUSSDSelectOption);
+        } catch (Exception e) {
             System.err.println("theAppMenus.getMODBillTypes() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -131,26 +199,26 @@ public interface FundsTransferMenus {
             String strLastKey = (String) theUSSDRequest.getUSSDData().keySet().toArray()[theUSSDRequest.getUSSDData().size() - 1];
             //String strLastValue = (String) theUSSDRequest.getUSSDData().values().toArray()[theUSSDRequest.getUSSDData().size() -1];
 
-            if(strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.FUNDS_TRANSFER_MENU.name())) {
+            if (strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.FUNDS_TRANSFER_MENU.name())) {
                 String strHeader = "Funds Transfer\nSelect source account";
                 theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END);
-            }else {
+            } else {
                 AppConstants.USSDDataType ussdDataType = AppUtils.getUSSDDataTypeFromValue(theUSSDRequest.getUSSDDataType());
 
-                switch (ussdDataType){
+                switch (ussdDataType) {
 
-                    case FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT:{
+                    case FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT: {
                         String strFromAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT.name());
-                        if(strFromAccount != ""){
+                        if (strFromAccount != "") {
                             String strHeader = "Funds Transfer\nSelect Funds Transfer option\n";
                             theUSSDResponse = getFundTransferInternalOptionMenu(theUSSDRequest, strHeader);
-                        }else{
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid source account}";
                             theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END);
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_OPTION:{
+                    case FUNDS_TRANSFER_INTERNAL_OPTION: {
 
                         String strOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_OPTION.name());
                         if (strOption.equalsIgnoreCase("MY_ACCOUNT")) {
@@ -160,37 +228,41 @@ public interface FundsTransferMenus {
                         } else if (strOption.equalsIgnoreCase("OTHER_ACCOUNT")) {
                             String strHeader = "Funds Transfer\nSelect transfer option\n";
                             theUSSDResponse = getFundTransferInternalToOptionMenu(theUSSDRequest, strHeader);
-                        }else {
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid menu}\nSelect Funds Transfer option\n";
                             theUSSDResponse = getFundTransferInternalOptionMenu(theUSSDRequest, strHeader);
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_TO_OPTION:{
+                    case FUNDS_TRANSFER_INTERNAL_TO_OPTION: {
                         String strToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
-                        if(strToOption.equalsIgnoreCase("Mobile No")){
+                        if (strToOption.equalsIgnoreCase("Mobile No")) {
                             String strResponse = "Funds Transfer\nEnter Mobile No. of the destination acct.\n";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                        } else if(strToOption.equalsIgnoreCase("ID Number")){
-                            String strResponse = "Funds Transfer\nEnter ID Number / Service Number of the destination acct.\n";
+                        } else if (strToOption.equalsIgnoreCase("Service Number")) {
+                            String strResponse = "Funds Transfer\nEnter Service Number of the destination acct.\n";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                        } else if(strToOption.equalsIgnoreCase("Account No")){
+                        }else if (strToOption.equalsIgnoreCase("ID Number")) {
+                            String strResponse = "Funds Transfer\nEnter ID Number of the destination acct.\n";
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                        }
+                        else if (strToOption.equalsIgnoreCase("Account No")) {
                             String strResponse = "Funds Transfer\nEnter Account Number of the destination acct.\n";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                        } else{
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid menu}\nSelect transfer option\n";
                             theUSSDResponse = getFundTransferInternalToOptionMenu(theUSSDRequest, strHeader);
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT:{
+                    case FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT: {
                         String strToAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT.name());
                         String strFromAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT.name());
                         if (strToAccount.equals("")) {
                             String strHeader = "Funds Transfer\n{Invalid destination account}\nSelect Funds Transfer option\n";
                             theUSSDResponse = getFundTransferInternalOptionMenu(theUSSDRequest, strHeader);
 
-                        }else if (strToAccount.equalsIgnoreCase(strFromAccount)) {
+                        } else if (strToAccount.equalsIgnoreCase(strFromAccount)) {
 
                             String strHeader = "Funds Transfer\n{Source and destination account MUST be different}\nSelect Funds Transfer option\n";
                             theUSSDResponse = getFundTransferInternalOptionMenu(theUSSDRequest, strHeader);
@@ -201,7 +273,8 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_AMOUNT:{
+
+                    case FUNDS_TRANSFER_INTERNAL_AMOUNT: {
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT.name());
                         if (strAmount.matches("^[1-9][0-9]*$")) {
                             String strResponse = "Funds Transfer\nEnter your PIN:";
@@ -215,48 +288,146 @@ public interface FundsTransferMenus {
 
                             double dblAmountEntered = Double.parseDouble(strAmount);
 
+                            String strSourceAccountDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT.name());
+                            HashMap<String, String> hmAccountDetails = Utils.toHashMap(strSourceAccountDetails);
+
+                            String strSourceCustomerIdentifier = hmAccountDetails.get("cust_id");
+                            String strSourceAccountNo = hmAccountDetails.get("ac_no");
+                            String strSourceAccountName = hmAccountDetails.get("ac_name");
+                            String strSourceAccountLabel = hmAccountDetails.get("ac_label");
+                            String strSourceAccountAvailableBalance = hmAccountDetails.get("ac_bal");
+
+                            double dblAvailableBalance = 0;
+                            try {
+                                dblAvailableBalance = Double.parseDouble(strSourceAccountAvailableBalance);
+                            } catch (Exception e) {
+                            }
+
                             if (dblAmountEntered < dblFundsTransferMinimum) {
                                 strResponse = "Funds Transfer\n{MINIMUM amount allowed is KES " + Utils.formatDouble(strFundsTransferMinimum, "#,###.##") + "}\nEnter amount:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                            }
-
-                            if (dblAmountEntered > dblFundsTransferMaximum) {
+                            }else if (dblAmountEntered > dblFundsTransferMaximum) {
                                 strResponse = "Funds Transfer\n{MAXIMUM amount allowed is KES " + Utils.formatDouble(strFundsTransferMaximum, "#,###.##") + "}\nEnter amount:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            }else if (Double.parseDouble(strAmount) > dblAvailableBalance) {
+                                strResponse =  "Funds Transfer\n{" + strSourceAccountLabel + " avail bal KES " + Utils.formatDouble(dblAvailableBalance, "#,##0.00") + " is INSUFFICIENT to withdraw KES " + Utils.formatDouble(strAmount, "#,##0.00") + "}\nEnter amount:";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                             }
+
                         } else {
                             String strResponse = "Funds Transfer\n{Please enter a valid amount}\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_PIN:{
+                    case FUNDS_TRANSFER_INTERNAL_PIN: {
                         String strLoginPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
                         String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_PIN.name());
                         if (strLoginPIN.equals(strPIN)) {
 
-                            String strFromAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT.name());
+                            String strFromAccountNoDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_FROM_ACCOUNT.name());
+                            HashMap<String, String> hmFromAccountNoDetails = Utils.toHashMap(strFromAccountNoDetails);
+                            String strFromAccountNo = hmFromAccountNoDetails.get("ac_no");
+                            String strFromAccountName = hmFromAccountNoDetails.get("ac_name");
+                            String strFromAccountLabel = hmFromAccountNoDetails.get("ac_label");
+
                             String strToAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT.name());
+
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_AMOUNT.name());
 
                             String strOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_OPTION.name());
 
-                            String strCharge = USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.ACCOUNT_TRANSFER, strAmount);
+                            // String strCharge = USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.ACCOUNT_TRANSFER, strAmount);
+
+                            String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                            TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.IFT_ACCOUNT_TO_ACCOUNT.getValue(),
+                                    Double.parseDouble(strAmount));
+
+                            String strCharge = "";
+                            if (chargesWrapper.hasErrors()) {
+                                strCharge = "";
+                            } else {
+                                strCharge = "\nTransaction Charge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
+                            }
 
                             strAmount = Utils.formatDouble(strAmount, "#,###");
-                            String strResponse = "Confirm Funds Transfer\nFrom A/C: " + strFromAccountNo + "\n" + "To A/C: " + strToAccount + "\n" + "Amount: KES " + strAmount +strCharge+ "\n";
+                            String strResponse = "Confirm Funds Transfer\nFrom A/C: " + strFromAccountNo + "\n" + "To A/C: " + strToAccount + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
 
-                            if(strOption.equalsIgnoreCase("OTHER_ACCOUNT")){
+                            if (strOption.equalsIgnoreCase("OTHER_ACCOUNT")) {
+                                String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
                                 String strOptionTo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
 
                                 String strToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
                                 String strAccountID = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT.name());
-                                LinkedHashMap<String, String> account = theUSSDAPI.getMemberAccountDetails(theUSSDRequest, strToOption, strAccountID);
 
-                                if(account!=null) {
+                                LinkedHashMap<String, String> account = new LinkedHashMap<>();
+
+                                if (strToOption.equalsIgnoreCase("Mobile No") || strToOption.equalsIgnoreCase("Service Number") || strToOption.equalsIgnoreCase("ID Number")) {
+                                    TransactionWrapper<FlexicoreHashMap> accountsListWrapper;
+                                    if (strToOption.equalsIgnoreCase("Mobile No")) {
+                                        strAccountID = Misc.sanitizePhoneNumber(strAccountID);
+                                        if(strAccountID.equalsIgnoreCase("INVALID")){
+                                            strResponse = "Funds Transfer\n{Enter a valid Mobile No. of the destination acct.}\n";
+                                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                                            return theUSSDResponse;
+                                        }
+
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "MSISDN", strAccountID, "FOSA");
+                                    } else if(strToOption.equalsIgnoreCase("Service Number")){
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "SERVICE_NO", strAccountID, "FOSA");
+                                    }else{
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "ID_NUMBER", strAccountID, "FOSA");
+                                    }
+
+                                    if (accountsListWrapper.hasErrors()) {
+                                        FlexicoreHashMap accountsMap = accountsListWrapper.getSingleRecord();
+
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, accountsMap.getStringValue("display_message"));
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreArrayList accountsList = accountsListWrapper.getSingleRecord().getValue("payload");
+                                    if (accountsList == null || accountsList.isEmpty()) {
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Sorry, the customer accounts could not be found.");
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreHashMap accountDetails = accountsList.get(0);
+                                    account.put(accountDetails.getStringValue("account_number"), accountDetails.getStringValue("account_label"));
+
+                                } else {
+                                    TransactionWrapper<FlexicoreHashMap> validateAccountNumberWrapper = CBSAPI.validateAccountNumber(
+                                            strMobileNo,
+                                            "MSISDN",
+                                            strMobileNo,
+                                            strAccountID);
+
+                                    if (validateAccountNumberWrapper.hasErrors()) {
+                                        FlexicoreHashMap accountsMap = validateAccountNumberWrapper.getSingleRecord();
+
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, accountsMap.getStringValue("display_message"));
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreHashMap accountDetails = validateAccountNumberWrapper.getSingleRecord();
+                                    account.put(accountDetails.getStringValue("account_number"), accountDetails.getStringValue("account_label"));
+
+                                }
+
+                                if (account != null) {
                                     String theAccount = account.keySet().toArray()[0].toString();
                                     String theAccountName = account.values().toArray()[0].toString();
-                                    strResponse = "Confirm Funds Transfer\nFrom A/C: " + strFromAccountNo + "\nTo " + strOptionTo + ": " + strToAccount + "\nA/C: " + theAccount + "\nName: " + theAccountName + "\n" + "Amount: KES " + strAmount+strCharge + "\n";
+                                    strResponse = "Confirm Funds Transfer\nFrom A/C: " + strFromAccountNo + "\nTo " + strOptionTo + ": " + strToAccount + "\nA/C: " + theAccount + "\nName: " + theAccountName + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
 
                                     ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                                     USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -264,24 +435,32 @@ public interface FundsTransferMenus {
 
                                     if (theAccount.equalsIgnoreCase(strFromAccountNo)) {
                                         if (strToOption.equalsIgnoreCase("Mobile No")) {
-                                            strResponse = "Funds Transfer\n{Enter a different Mobile No. of the destination acct.}\n";
+                                            strResponse = "Funds Transfer\n{Enter a valid Mobile No. of the destination acct.}\n";
                                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                                         } else if (strToOption.equalsIgnoreCase("ID Number")) {
-                                            strResponse = "Funds Transfer\n{Enter a different ID Number / Service Number of the destination acct.}\n";
+                                            strResponse = "Funds Transfer\n{Enter a different ID Number of the destination acct.}\n";
                                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                                        } else if (strToOption.equalsIgnoreCase("Account No")) {
+                                        }else if (strToOption.equalsIgnoreCase("Service Number")) {
+                                            strResponse = "Funds Transfer\n{Enter a different Service Number of the destination acct.}\n";
+                                            theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                                        }
+                                        else if (strToOption.equalsIgnoreCase("Account No")) {
                                             strResponse = "Funds Transfer\n{Enter a different Account Number of the destination acct.}\n";
                                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                                         }
                                     }
                                 } else {
-                                    if(strToOption.equalsIgnoreCase("Mobile No")){
+                                    if (strToOption.equalsIgnoreCase("Mobile No")) {
                                         strResponse = "Funds Transfer\n{Enter a valid Mobile No. of the destination acct.}\n";
                                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                                     } else if (strToOption.equalsIgnoreCase("ID Number")) {
-                                        strResponse = "Funds Transfer\n{Enter a valid ID Number / Service Number of the destination acct.}\n";
+                                        strResponse = "Funds Transfer\n{Enter a valid ID Number of the destination acct.}\n";
                                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                                    } else if (strToOption.equalsIgnoreCase("Account No")) {
+                                    } else if (strToOption.equalsIgnoreCase("Service Number")) {
+                                        strResponse = "Funds Transfer\n{Enter a valid Service Number of the destination acct.}\n";
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                                    }
+                                    else if (strToOption.equalsIgnoreCase("Account No")) {
                                         strResponse = "Funds Transfer\n{Enter a valid Account Number of the destination acct.}\n";
                                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                                     } else {
@@ -290,6 +469,13 @@ public interface FundsTransferMenus {
                                     }
                                 }
                             } else {
+                                HashMap<String, String> hmToAccountNoDetails = Utils.toHashMap(strToAccount);
+                                String strToAccountNo = hmToAccountNoDetails.get("ac_no");
+                                String strToAccountName = hmToAccountNoDetails.get("ac_name");
+                                String strToAccountLabel = hmToAccountNoDetails.get("ac_label");
+
+                                strResponse = "Confirm Funds Transfer\nFrom A/C: " + strFromAccountNo + "\n" + "To A/C: " + strToAccountNo + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
+
                                 ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
@@ -301,11 +487,9 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_INTERNAL_CONFIRMATION:{
+                    case FUNDS_TRANSFER_INTERNAL_CONFIRMATION: {
                         String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_CONFIRMATION.name());
                         if (strConfirmation.equalsIgnoreCase("YES")) {
-
-                            String strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.";
 
                             /*Thread worker = new Thread(() -> {
                                 APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.fundsTransfer(theUSSDRequest);
@@ -313,12 +497,29 @@ public interface FundsTransferMenus {
                             });
                             worker.start();*/
 
-                            APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.fundsTransfer(theUSSDRequest);
+                            String strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.\n";
+
+                            // Thread worker = new Thread(() -> {
+
+                            TransactionWrapper<FlexicoreHashMap> internalFundsTransferWrapper = theUSSDAPI.internalFundsTransfer(theUSSDRequest);
+                            FlexicoreHashMap internalFundsTransferMap = internalFundsTransferWrapper.getSingleRecord();
+
+                            if (internalFundsTransferWrapper.hasErrors()) {
+                                String strErrorMessage = internalFundsTransferMap.getValue("cbs_api_return_val").toString() + "\n";
+                                strErrorMessage += internalFundsTransferMap.getStringValue("display_message");
+
+                                System.err.println("FundsTransferMenus.displayMenu_FundTransferInternal() - Response " + strErrorMessage);
+                            }
+                            //});
+                            // worker.start();
+
+                            /*APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.fundsTransfer(theUSSDRequest);
 
 
                             if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
                                 strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.";
-                            }else {
+                            }
+                            else {
                                 switch (transactionReturnVal) {
                                     case INCORRECT_PIN:
                                     case INVALID_ACCOUNT: {
@@ -338,11 +539,11 @@ public interface FundsTransferMenus {
                                         break;
                                     }
                                 }
-                            }
+                            }*/
 
-                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
-                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO",theArrayListUSSDSelectOption);
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, internalFundsTransferMap.getStringValue("display_message"));
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
 
                         } else if (strConfirmation.equalsIgnoreCase("NO")) {
                             String strResponse = "Dear member, your Funds Transfer request NOT confirmed. Funds Transfer request NOT COMPLETED.";
@@ -356,12 +557,22 @@ public interface FundsTransferMenus {
 
                             String strOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_OPTION.name());
 
-                            String strCharge = USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.ACCOUNT_TRANSFER, strAmount);
+                            String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                            TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.IFT_ACCOUNT_TO_ACCOUNT.getValue(),
+                                    Double.parseDouble(strAmount));
+
+                            String strCharge = "";
+                            if (chargesWrapper.hasErrors()) {
+                                strCharge = "";
+                            } else {
+                                strCharge = "\nTransaction Charge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
+                            }
 
                             strAmount = Utils.formatDouble(strAmount, "#,###");
-                            String strResponse = "Confirm Funds Transfer\n{Select a valid menu}\nFrom A/C: " + strFromAccountNo + "\n" + "To A/C: " + strToAccount + "\n" + "Amount: KES " + strAmount+strCharge + "\n";
+                            String strResponse = "Confirm Funds Transfer\n{Select a valid menu}\nFrom A/C: " + strFromAccountNo + "\n" + "To A/C: " + strToAccount + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
 
-                            if(strOption.equalsIgnoreCase("OTHER_ACCOUNT")){
+                           /* if (strOption.equalsIgnoreCase("OTHER_ACCOUNT")) {
                                 String strOptionTo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
                                 String strToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
                                 String strAccountID = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT.name());
@@ -369,7 +580,75 @@ public interface FundsTransferMenus {
 
                                 String theAccount = account.keySet().toArray()[0].toString();
                                 String theAccountName = account.values().toArray()[0].toString();
-                                strResponse = "Confirm Funds Transfer\n{Select a valid menu}\nFrom A/C: " + strFromAccountNo + "\nTo " + strOptionTo + ": " + strToAccount + "\nA/C: " + theAccount + "\nName: " + theAccountName + "\n" + "Amount: KES " + strAmount+strCharge + "\n";
+                                strResponse = "Confirm Funds Transfer\n{Select a valid menu}\nFrom A/C: " + strFromAccountNo + "\nTo " + strOptionTo + ": " + strToAccount + "\nA/C: " + theAccount + "\nName: " + theAccountName + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
+                            }*/
+
+                            if (strOption.equalsIgnoreCase("OTHER_ACCOUNT")) {
+                                String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
+
+                                String strOptionTo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
+
+                                String strToOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION.name());
+                                String strAccountID = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_ACCOUNT.name());
+
+                                LinkedHashMap<String, String> account = new LinkedHashMap<>();
+
+                                if (strToOption.equalsIgnoreCase("Mobile No") || strToOption.equalsIgnoreCase("Service Number")  || strToOption.equalsIgnoreCase("ID Number")) {
+                                    TransactionWrapper<FlexicoreHashMap> accountsListWrapper;
+                                    if (strToOption.equalsIgnoreCase("Mobile No")) {
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "MSISDN", strAccountID, "FOSA");
+                                    } else if (strToOption.equalsIgnoreCase("Service Number")) {
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "SERVICE_NO", strAccountID, "FOSA");
+                                    }
+                                    else {
+                                        accountsListWrapper = CBSAPI.getSavingsAccountList_V2(strMobileNumber, "ID_NUMBER", strAccountID, "FOSA");
+                                    }
+
+                                    if (accountsListWrapper.hasErrors()) {
+                                        FlexicoreHashMap accountsMap = accountsListWrapper.getSingleRecord();
+
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, accountsMap.getStringValue("display_message"));
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreArrayList accountsList = accountsListWrapper.getSingleRecord().getValue("payload");
+                                    if (accountsList == null || accountsList.isEmpty()) {
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "Sorry, the customer accounts could not be found.");
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreHashMap accountDetails = accountsList.get(0);
+                                    account.put(accountDetails.getStringValue("account_number"), accountDetails.getStringValue("account_label"));
+
+                                } else {
+                                    TransactionWrapper<FlexicoreHashMap> validateAccountNumberWrapper = CBSAPI.validateAccountNumber(
+                                            strMobileNo,
+                                            "MSISDN",
+                                            strMobileNo,
+                                            strAccountID);
+
+                                    if (validateAccountNumberWrapper.hasErrors()) {
+                                        FlexicoreHashMap accountsMap = validateAccountNumberWrapper.getSingleRecord();
+
+                                        ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
+                                        USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, accountsMap.getStringValue("display_message"));
+                                        theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_END, "NO", theArrayListUSSDSelectOption);
+
+                                        return theUSSDResponse;
+                                    }
+
+                                    FlexicoreHashMap accountDetails = validateAccountNumberWrapper.getSingleRecord();
+                                    account.put(accountDetails.getStringValue("account_number"), accountDetails.getStringValue("account_label"));
+                                }
+
+                                String theAccount = account.keySet().toArray()[0].toString();
+                                String theAccountName = account.values().toArray()[0].toString();
+                                strResponse = "Confirm Funds Transfer\n{Select a valid menu}\nFrom A/C: " + strFromAccountNo + "\nTo " + strOptionTo + ": " + strToAccount + "\nA/C: " + theAccount + "\nName: " + theAccountName + "\n" + "Amount: KES " + strAmount + strCharge + "\n";
                             }
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
@@ -379,7 +658,7 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    default:{
+                    default: {
                         System.err.println("theAppMenus.displayMenu_FundTransferInternal() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
                         String strResponse = "Funds Transfer\n{Sorry, an error has occurred while processing your request}";
@@ -391,11 +670,9 @@ public interface FundsTransferMenus {
                 }
 
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_FundTransferInternal() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -406,19 +683,19 @@ public interface FundsTransferMenus {
 
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
-        try{
-            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
 
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strHeader);
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "Mobile No", "1: Mobile No");
-            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "ID Number", "2: ID Number / Service Number");
-            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "3", "Account No", "3: Account Number");
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION, "NO",theArrayListUSSDSelectOption);
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "Service Number", "2: Service Number");
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "3", "ID Number", "3: ID Number");
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "4", "Account No", "4: Account Number");
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_TO_OPTION, "NO", theArrayListUSSDSelectOption);
 
-        }catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.getFundTransferInternalOptionMenu() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
 
@@ -428,19 +705,22 @@ public interface FundsTransferMenus {
     default USSDResponse getFundTransferInternalOptionMenu(USSDRequest theUSSDRequest, String theHeader) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
-        try{
-            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
 
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "1", "MY_ACCOUNT", "1: My account");
-            if(CBSAPI.checkService("Transfer to Other Account")){
+            //TODO: check if this can be cconfigured in SMP side.
+            /*if(CBSAPI.checkService("Transfer to Other Account")){
                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "OTHER_ACCOUNT", "2: Other member's account");
-            }
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_OPTION, "NO",theArrayListUSSDSelectOption);
-        }catch(Exception e){
+            }*/
+
+            USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, "2", "OTHER_ACCOUNT", "2: Other member's account");
+
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_INTERNAL_OPTION, "NO", theArrayListUSSDSelectOption);
+        } catch (Exception e) {
             System.err.println("theAppMenus.getFundTransferInternalOptionMenu() ERROR : " + e.getMessage());
-        }
-            finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -451,26 +731,25 @@ public interface FundsTransferMenus {
     default USSDResponse displayMenu_FundTransferExternalBanks(USSDRequest theUSSDRequest, String theHeader) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
-        try{
-            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+        try {
+            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
 
-            LinkedList<APIUtils.ServiceProviderAccount> llSPAAccounts = APIUtils.getSPAccounts("BANK_SHORT_CODE");
+            LinkedList<APIUtils.ServiceProviderAccount> llSPAAccounts = APIUtils.getSPAccounts(SPManagerConstants.ProviderAccountType.BANK_SHORT_CODE);
 
             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, theHeader);
-            for(APIUtils.ServiceProviderAccount serviceProviderAccount : llSPAAccounts){
+            for (APIUtils.ServiceProviderAccount serviceProviderAccount : llSPAAccounts) {
                 int intOptionMenu = llSPAAccounts.indexOf(serviceProviderAccount);
-                intOptionMenu = intOptionMenu+1;
+                intOptionMenu = intOptionMenu + 1;
                 String strOptionMenu = String.valueOf(intOptionMenu);
                 String strProviderAccountIdentifier = serviceProviderAccount.getProviderAccountIdentifier();
                 String strProviderAccountLongTag = serviceProviderAccount.getProviderAccountLongTag();
-                String strOptionDisplayText = strOptionMenu+": "+strProviderAccountLongTag;
+                String strOptionDisplayText = strOptionMenu + ": " + strProviderAccountLongTag;
                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strOptionMenu, strProviderAccountIdentifier, strOptionDisplayText);
             }
-            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK, "NO",theArrayListUSSDSelectOption);
-        }catch(Exception e){
+            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK, "NO", theArrayListUSSDSelectOption);
+        } catch (Exception e) {
             System.err.println("theAppMenus.getFundsTransferOptions() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -488,26 +767,26 @@ public interface FundsTransferMenus {
             String strLastKey = (String) theUSSDRequest.getUSSDData().keySet().toArray()[theUSSDRequest.getUSSDData().size() - 1];
             //String strLastValue = (String) theUSSDRequest.getUSSDData().values().toArray()[theUSSDRequest.getUSSDData().size() -1];
 
-            if(strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.FUNDS_TRANSFER_MENU.name())) {
+            if (strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.FUNDS_TRANSFER_MENU.name())) {
                 String strHeader = "Funds Transfer\nSelect Bank to transfer funds";
                 theUSSDResponse = displayMenu_FundTransferExternalBanks(theUSSDRequest, strHeader);
 
-            }else {
+            } else {
 
                 AppConstants.USSDDataType ussdDataType = AppUtils.getUSSDDataTypeFromValue(theUSSDRequest.getUSSDDataType());
 
-                switch (ussdDataType){
-                    case FUNDS_TRANSFER_EXTERNAL_BANK:{
+                switch (ussdDataType) {
+                    case FUNDS_TRANSFER_EXTERNAL_BANK: {
                         String strToBank = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK.name());
-                        if(strToBank != ""){
+                        if (strToBank != "") {
                             theUSSDResponse = displayMenu_FundTransferExternal_Maintain_Accounts(theUSSDRequest, theParam);
-                        }else{
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid Bank to transfer funds}";
                             theUSSDResponse = displayMenu_FundTransferExternalBanks(theUSSDRequest, strHeader);
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO:{
+                    case FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO: {
 
                         String strToBank = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK.name());
 
@@ -520,7 +799,7 @@ public interface FundsTransferMenus {
                         String strMenuOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO.name());
 
                         String strAction = "";
-                        if(!strMenuOption.isEmpty()){
+                        if (!strMenuOption.isEmpty()) {
                             HashMap<String, String> hmMenuOption = Utils.toHashMap(strMenuOption);
                             strAction = hmMenuOption.get("ACTION");
                         }
@@ -530,25 +809,26 @@ public interface FundsTransferMenus {
                                 String strHeader = "Funds Transfer\nSelect funds source account";
                                 theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END);
                                 break;
-                            }case "ADD": {
+                            }
+                            case "ADD": {
 
                                 String strResponse = "Add " + strToBankName + " " + strAccountNaming + "\nEnter " + strAccountNaming + ":";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                                 break;
                             }
                             case "REMOVE": {
-                                String strHeader2 = "Remove " + strToBankName + " " + strAccountNaming +"\nSelect " + strAccountNaming + " to Remove:";
+                                String strHeader2 = "Remove " + strToBankName + " " + strAccountNaming + "\nSelect " + strAccountNaming + " to Remove:";
 
-                                String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                                String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                                 theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_REMOVE, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader2, USSDConstants.Condition.NO);
                                 break;
                             }
-                            default:{
+                            default: {
 
                                 System.err.println("theAppMenus.displayMenu_FundTransferExternal() UNKNOWN PARAM ERROR : strAction = " + strAction);
 
                                 String strHeader = "Funds Transfer\n{Select a VALID MENU}:\n";
-                                String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                                String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                                 theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.YES);
 
                                 break;
@@ -556,33 +836,33 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NAME:{
+                    case FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NAME: {
                         String strToBank = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK.name());
                         APIUtils.ServiceProviderAccount serviceProviderAccount = getProviderAccountCode(strToBank);
                         String strToBankName = serviceProviderAccount.getProviderAccountLongTag();
                         String strSPProviderAccountCode = serviceProviderAccount.getProviderAccountCode();
                         String strToBankAccountName = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NAME.name());
-                        if(strToBankAccountName.length() >= 3){ //Three or more Characters
+                        if (strToBankAccountName.length() >= 3) { //Three or more Characters
                             String strHeader = "Funds Transfer\nSelect funds source account";
                             theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END);
-                        }else{
-                            String strHeader = "Funds Transfer\n{Enter a valid "+strToBankName+" account name to receive funds}:";
+                        } else {
+                            String strHeader = "Funds Transfer\n{Enter a valid " + strToBankName + " account name to receive funds}:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strHeader, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NAME, USSDConstants.USSDInputType.STRING, "NO");
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT:{
+                    case FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT: {
                         String strFromAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
-                        if(strFromAccount != ""){
+                        if (strFromAccount != "") {
                             String strResponse = "Funds Transfer\nEnter amount:";
                             theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                        }else{
+                        } else {
                             String strHeader = "Funds Transfer\n{Select a valid funds source account}";
                             theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END);
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_EXTERNAL_AMOUNT:{
+                    case FUNDS_TRANSFER_EXTERNAL_AMOUNT: {
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT.name());
                         if (strAmount.matches("^[1-9][0-9]*$")) {
                             String strResponse = "Funds Transfer\nEnter your PIN:";
@@ -596,13 +876,29 @@ public interface FundsTransferMenus {
 
                             double dblAmountEntered = Double.parseDouble(strAmount);
 
+                            String strSourceAccountDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
+                            HashMap<String, String> hmAccountDetails = Utils.toHashMap(strSourceAccountDetails);
+
+                            String strSourceCustomerIdentifier = hmAccountDetails.get("cust_id");
+                            String strSourceAccountNo = hmAccountDetails.get("ac_no");
+                            String strSourceAccountName = hmAccountDetails.get("ac_name");
+                            String strSourceAccountLabel = hmAccountDetails.get("ac_label");
+                            String strSourceAccountAvailableBalance = hmAccountDetails.get("ac_bal");
+
+                            double dblAvailableBalance = 0;
+                            try {
+                                dblAvailableBalance = Double.parseDouble(strSourceAccountAvailableBalance);
+                            } catch (Exception e) {
+                            }
+
                             if (dblAmountEntered < dblFundsTransferMinimum) {
                                 strResponse = "Funds Transfer\n{MINIMUM amount allowed is KES " + Utils.formatDouble(strFundsTransferMinimum, "#,###.##") + "}\nEnter amount:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
-                            }
-
-                            if (dblAmountEntered > dblFundsTransferMaximum) {
+                            }else if (dblAmountEntered > dblFundsTransferMaximum) {
                                 strResponse = "Funds Transfer\n{MAXIMUM amount allowed is KES " + Utils.formatDouble(strFundsTransferMaximum, "#,###.##") + "}\nEnter amount:";
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
+                            }else if (Double.parseDouble(strAmount) > dblAvailableBalance) {
+                                strResponse =  "Funds Transfer\n{" + strSourceAccountLabel + " avail bal KES " + Utils.formatDouble(dblAvailableBalance, "#,##0.00") + " is INSUFFICIENT to withdraw KES " + Utils.formatDouble(strAmount, "#,##0.00") + "}\nEnter amount:";
                                 theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
                             }
                         } else {
@@ -611,7 +907,7 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    case FUNDS_TRANSFER_EXTERNAL_PIN:{
+                    case FUNDS_TRANSFER_EXTERNAL_PIN: {
                         String strLoginPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.LOGIN_PIN.name());
                         String strPIN = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_PIN.name());
                         if (strLoginPIN.equals(strPIN)) {
@@ -631,15 +927,30 @@ public interface FundsTransferMenus {
 
                             //String strToBankAccountName = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NAME.name());
 
-                            String strFromAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
+                            String strFromAccountNoDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
+                            HashMap<String, String> hmFromAccountNoDetails = Utils.toHashMap(strFromAccountNoDetails);
+                            String theCustomerIdentifier = hmFromAccountNoDetails.get("cust_id");
+                            String strFromAccountNo = hmFromAccountNoDetails.get("ac_no");
+                            String strFromAccountName = hmFromAccountNoDetails.get("ac_name");
+                            String strFromAccountLabel = hmFromAccountNoDetails.get("ac_label");
 
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT.name());
 
-                            String strCharge = USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.BANK_TRANSFER, strAmount);
+                            String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                            TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.BANK_TRANSFER.getValue(),
+                                    Double.parseDouble(strAmount));
+
+                            String strCharge = "";
+                            if (chargesWrapper.hasErrors()) {
+                                strCharge = "";
+                            } else {
+                                strCharge = "\nTransaction Charge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
+                            }
 
                             strAmount = Utils.formatDouble(strAmount, "#,###");
 
-                            String strResponse = "Confirm Funds Transfer to "+ strToBankName +"\nA/C: " + strAccountIdentifier + " - " + strAccountName + "\nFrom A/C: " + strFromAccountNo + "\nAmount: KES " + strAmount+strCharge + "\n";
+                            String strResponse = "Confirm Funds Transfer to " + strToBankName + "\nA/C: " + strAccountIdentifier + " - " + strAccountName + "\nFrom A/C: " + strFromAccountNo + "\nAmount: KES " + strAmount + strCharge + "\n";
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -654,14 +965,15 @@ public interface FundsTransferMenus {
                         String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_CONFIRMATION.name());
                         if (strConfirmation.equalsIgnoreCase("YES")) {
 
-                            String strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.";
+                           // String strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.";
 
                             //APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.bankTransferViaB2B(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
-                            APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.bankTransferViaB2B(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
+                            /*APIConstants.TransactionReturnVal transactionReturnVal = theUSSDAPI.bankTransferViaB2B(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
 
-                            if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
+                            if (transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)) {
                                 strResponse = "Dear member, your Funds Transfer request has been received successfully. Please wait shortly as it's being processed.";
-                            }else {
+                            }
+                            else {
                                 switch (transactionReturnVal) {
                                     case INCORRECT_PIN: {
                                         strResponse = "Sorry the PIN provided is incorrect. Your Funds Transfer request CANNOT be completed.\n";
@@ -688,11 +1000,21 @@ public interface FundsTransferMenus {
                                         break;
                                     }
                                 }
+                            }*/
+
+                            TransactionWrapper<FlexicoreHashMap> moneyOutWrapper = theUSSDAPI.bankTransferViaB2B(theUSSDRequest, PESAConstants.PESAType.PESA_OUT);
+                            FlexicoreHashMap moneyOutMap = moneyOutWrapper.getSingleRecord();
+                            if (moneyOutWrapper.hasErrors()) {
+                                String strErrorMessage = moneyOutMap.getValue("cbs_api_return_val").toString() + "\n";
+                                strErrorMessage += moneyOutMap.getStringValue("display_message");
+                                System.err.println("FundsTransferMenus.bankTransferViaB2B() - Response " + strErrorMessage);
                             }
 
-                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                            String strResponse = moneyOutMap.getStringValue("display_message");
+
+                            ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END, "NO",theArrayListUSSDSelectOption);
+                            theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_END, "NO", theArrayListUSSDSelectOption);
 
                         } else if (strConfirmation.equalsIgnoreCase("NO")) {
                             String strResponse = "Dear member, your Funds Transfer request NOT confirmed. Funds Transfer request NOT COMPLETED.";
@@ -707,15 +1029,30 @@ public interface FundsTransferMenus {
                             APIUtils.ServiceProviderAccount serviceProviderAccount = getProviderAccountCode(strBank);
                             String strToBankName = serviceProviderAccount.getProviderAccountLongTag();
 
-                            String strFromAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
+                            String strFromAccountNoDetails = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_FROM_ACCOUNT.name());
+                            HashMap<String, String> hmFromAccountNoDetails = Utils.toHashMap(strFromAccountNoDetails);
+                            String theCustomerIdentifier = hmFromAccountNoDetails.get("cust_id");
+                            String strFromAccountNo = hmFromAccountNoDetails.get("ac_no");
+                            String strFromAccountName = hmFromAccountNoDetails.get("ac_name");
+                            String strFromAccountLabel = hmFromAccountNoDetails.get("ac_label");
 
                             String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_AMOUNT.name());
 
-                            String strCharge = USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.BANK_TRANSFER, strAmount);
+                            String strMobileNo = Long.toString(theUSSDRequest.getUSSDMobileNo());
+
+                            TransactionWrapper<FlexicoreHashMap> chargesWrapper = CBSAPI.getCharges(strMobileNo, "MSISDN", strMobileNo, AppConstants.ChargeServices.BANK_TRANSFER.getValue(),
+                                    Double.parseDouble(strAmount));
+
+                            String strCharge = "";
+                            if (chargesWrapper.hasErrors()) {
+                                strCharge = "";
+                            } else {
+                                strCharge = "\nTransaction Charge: KES " + chargesWrapper.getSingleRecord().getStringValue("charge_amount");
+                            }
 
                             strAmount = Utils.formatDouble(strAmount, "#,###");
 
-                            String strResponse = "Confirm Funds Transfer to "+ strToBankName +"\n{Select a valid menu}\nA/C: " + strToBankAccountNo + " - " + strToBankAccountName + "\nFrom A/C: " + strFromAccountNo + "\nAmount: KES " + strAmount +strCharge+ "\n";
+                            String strResponse = "Confirm Funds Transfer to " + strToBankName + "\n{Select a valid menu}\nA/C: " + strToBankAccountNo + " - " + strToBankAccountName + "\nFrom A/C: " + strFromAccountNo + "\nAmount: KES " + strAmount + strCharge + "\n";
 
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
@@ -723,7 +1060,7 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    default:{
+                    default: {
                         System.err.println("theAppMenus.displayMenu_FundTransfer() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
                         String strResponse = "Funds Transfer\n{Sorry, an error has occurred while processing your request}";
@@ -734,22 +1071,20 @@ public interface FundsTransferMenus {
                     }
                 }
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_FundTransfer() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
 
     }
 
-    default USSDResponse displayMenu_FundTransferExternal_Maintain_Accounts(USSDRequest theUSSDRequest, String theParam){
+    default USSDResponse displayMenu_FundTransferExternal_Maintain_Accounts(USSDRequest theUSSDRequest, String theParam) {
         USSDResponse theUSSDResponse = null;
         AppMenus theAppMenus = new AppMenus();
 
-        try{
+        try {
 
             AppConstants.USSDDataType ussdDataType = AppUtils.getUSSDDataTypeFromValue(theUSSDRequest.getUSSDDataType());
             String strToBank = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_BANK.name());
@@ -761,10 +1096,10 @@ public interface FundsTransferMenus {
 
             switch (ussdDataType) {
                 case FUNDS_TRANSFER_EXTERNAL_BANK: {
-                    if(!Objects.equals(strToBank, "")){
-                        String strHeader = "Funds Transfer\nSelect "+strToBankName+" "+ strAccountNaming+" to receive funds:\n";
+                    if (!Objects.equals(strToBank, "")) {
+                        String strHeader = "Funds Transfer\nSelect " + strToBankName + " " + strAccountNaming + " to receive funds:\n";
                         theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.YES);
-                    }else{
+                    } else {
                         String strHeader = "Funds Transfer\n{Select a valid Bank to transfer funds}";
                         theUSSDResponse = displayMenu_FundTransferExternalBanks(theUSSDRequest, strHeader);
                     }
@@ -774,12 +1109,12 @@ public interface FundsTransferMenus {
                 case FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_ACCOUNT: {
                     String theAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_ACCOUNT.name());
 
-                    if( theAccountNo.matches("^\\d{6,24}$")  ) { //6 - 24 Digits
+                    if (theAccountNo.matches("^\\d{6,24}$")) { //6 - 24 Digits
 
-                        String strResponse = "Add " + strToBankName + " " + strAccountNaming + "\nEnter the NAME of the account HOLDER\n(" + strToBankName + " "  +strAccountNaming+ " " + theAccountNo + "):";
+                        String strResponse = "Add " + strToBankName + " " + strAccountNaming + "\nEnter the NAME of the account HOLDER\n(" + strToBankName + " " + strAccountNaming + " " + theAccountNo + "):";
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_NAME, USSDConstants.USSDInputType.STRING, "NO");
-                    }else{
-                        String strResponse = "Add " + strToBankName + " " + strAccountNaming + "\n{Enter a VALID "+strAccountNaming+"}:";
+                    } else {
+                        String strResponse = "Add " + strToBankName + " " + strAccountNaming + "\n{Enter a VALID " + strAccountNaming + "}:";
                         theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_ACCOUNT, USSDConstants.USSDInputType.STRING, "NO");
                     }
 
@@ -788,78 +1123,76 @@ public interface FundsTransferMenus {
                 }
                 case FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_NAME: {
                     //ADD Account
-                    String strMobileNo = String.valueOf( theUSSDRequest.getUSSDMobileNo() );
+                    String strMobileNo = String.valueOf(theUSSDRequest.getUSSDMobileNo());
                     String strAccountNo = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_ACCOUNT.name());
                     String strAccountName = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_NAME.name());
 
-                    try{
-                        String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                    try {
+                        String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
 
                         String strIntegritySecret = PESALocalParameters.getIntegritySecret();
                         SPManager spManager = new SPManager(strIntegritySecret);
-                        spManager.createUserSavedAccount(SPManagerConstants.UserIdentifierType.MSISDN,strMobileNo,strSPProviderAccountCode, SPManagerConstants.AccountIdentifierType.ACCOUNT_NO,strAccountNo, strAccountName);
+                        spManager.createUserSavedAccount(SPManagerConstants.UserIdentifierType.MSISDN, strMobileNo, strSPProviderAccountCode, SPManagerConstants.AccountIdentifierType.ACCOUNT_NO, strAccountNo, strAccountName);
 
 
-                    }catch (Exception e){
+                    } catch (Exception e) {
                         System.err.println("theAppMenus.displayMenu_FundTransferExternal_Maintain_Accounts() ERROR : " + e.getMessage());
                     }
 
-                    String strHeader = "Funds Transfer\nSelect "+strToBankName+" "+ strAccountNaming+" to receive funds:\n";
-                    String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                    String strHeader = "Funds Transfer\nSelect " + strToBankName + " " + strAccountNaming + " to receive funds:\n";
+                    String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                     theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.YES);
                     break;
                 }
                 case FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_REMOVE: {
                     //REMOVE Account
-                    String strMobileNo = String.valueOf( theUSSDRequest.getUSSDMobileNo() );
+                    String strMobileNo = String.valueOf(theUSSDRequest.getUSSDMobileNo());
                     String strAccountHashMap = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_REMOVE.name());
 
-                    if(!strAccountHashMap.isEmpty()){
-                        try{
+                    if (!strAccountHashMap.isEmpty()) {
+                        try {
 
                             HashMap<String, String> hmAccount = Utils.toHashMap(strAccountHashMap);
                             String strAccountID = hmAccount.get("ACCOUNT_ID");
                             //String strAccountName = hmAccount.get("ACCOUNT_NAME");
                             //String strAccountIdentifier = hmAccount.get("ACCOUNT_IDENTIFIER");
 
-                            String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                            String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
 
                             String strIntegritySecret = PESALocalParameters.getIntegritySecret();
                             SPManager spManager = new SPManager(strIntegritySecret);
                             spManager.removeUserSavedAccountsByAccountId(strAccountID);
 
-                        }catch (Exception e){
+                        } catch (Exception e) {
                             System.err.println("theAppMenus.displayMenu_FundTransferExternal_Maintain_Accounts() ERROR : " + e.getMessage());
                         }
 
-                        String strHeader = "Funds Transfer\nSelect "+strToBankName+" "+ strAccountNaming+" to receive funds:\n";
-                        String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                        String strHeader = "Funds Transfer\nSelect " + strToBankName + " " + strAccountNaming + " to receive funds:\n";
+                        String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                         theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.YES);
 
-                    }else{
-                        String strHeader = "Remove " + strToBankName + " " + strAccountNaming +"\n{Select a VALID MENU}:";
+                    } else {
+                        String strHeader = "Remove " + strToBankName + " " + strAccountNaming + "\n{Select a VALID MENU}:";
 
-                        String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                        String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                         theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_MAINTENANCE_ACCOUNT_REMOVE, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.NO);
                     }
 
                     break;
                 }
-                default:{
-                    String strHeader = "Funds Transfer\n{Select a VALID "+strToBankName+" "+ strAccountNaming+" to receive funds}:\n";
+                default: {
+                    String strHeader = "Funds Transfer\n{Select a VALID " + strToBankName + " " + strAccountNaming + " to receive funds}:\n";
                     System.err.println("theAppMenus.displayMenu_FundTransferExternal_Maintain_Accounts() UNKNOWN PARAM ERROR : strUSSDDataType = " + ussdDataType.name());
 
-                    String strSPProviderAccount = theAccountType.replaceAll(" ","_");
+                    String strSPProviderAccount = theAccountType.replaceAll(" ", "_");
                     theUSSDResponse = GeneralMenus.getAccountMaintenanceMenus(theUSSDRequest, AppConstants.USSDDataType.FUNDS_TRANSFER_EXTERNAL_TO_BANK_ACCOUNT_NO, theAccountType, strAccountNaming, strSPProviderAccountCode, strHeader, USSDConstants.Condition.YES);
 
                     break;
                 }
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.displayMenu_FundTransferExternal_Maintain_Accounts() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -878,17 +1211,17 @@ public interface FundsTransferMenus {
             String strLastKey = (String) theUSSDRequest.getUSSDData().keySet().toArray()[theUSSDRequest.getUSSDData().size() - 1];
             //String strLastValue = (String) theUSSDRequest.getUSSDData().values().toArray()[theUSSDRequest.getUSSDData().size() -1];
 
-            if(strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.MAIN_IN_MENU.name())) {
+            if (strLastKey.equalsIgnoreCase(AppConstants.USSDDataType.MAIN_IN_MENU.name())) {
                 String strHeader = "Pay MOD Bills\nSelect unit\n";
                 theUSSDResponse = getMODBillTypes(theUSSDRequest, strHeader);
 
-            }else {
+            } else {
                 AppConstants.USSDDataType ussdDataType = AppUtils.getUSSDDataTypeFromValue(theUSSDRequest.getUSSDDataType());
 
-                switch (ussdDataType){
-                    case PAY_MOD_BILLS_TYPE:{
+                switch (ussdDataType) {
+                    case PAY_MOD_BILLS_TYPE: {
                         String strMODBILLType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_TYPE.name());
-                        System.out.println("MOD Bill Type: "+strMODBILLType);
+                        System.out.println("MOD Bill Type: " + strMODBILLType);
                         if (strMODBILLType != null && !strMODBILLType.isEmpty()) {
                             String strHeader = "Pay MOD Bills\nSelect branch\n";
                             theUSSDResponse = GeneralMenus.displayMenu_PayMODBillBranches(theUSSDRequest, theParam, strHeader, strMODBILLType, AppConstants.USSDDataType.PAY_MOD_BILLS_BRANCH);
@@ -898,7 +1231,7 @@ public interface FundsTransferMenus {
                         }
                         break;
                     }
-                    case PAY_MOD_BILLS_BRANCH:{
+                    case PAY_MOD_BILLS_BRANCH: {
                         String strMODBILLType = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_TYPE.name());
                         String strMODBILLTypeBranch = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_BRANCH.name());
                         if (strMODBILLTypeBranch != null && !strMODBILLTypeBranch.isEmpty()) {
@@ -915,11 +1248,11 @@ public interface FundsTransferMenus {
                         break;
                     }
 
-                    case PAY_MOD_BILLS_PAYMENT_OPTION:{
+                    case PAY_MOD_BILLS_PAYMENT_OPTION: {
                         String strMODBILLPaymentOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_PAYMENT_OPTION.name());
                         if (strMODBILLPaymentOption != null && !strMODBILLPaymentOption.isEmpty()) {
 
-                            if(strMODBILLPaymentOption.equals("Savings Account")) {
+                            if (strMODBILLPaymentOption.equals("Savings Account")) {
                                 String strHeader = "Pay MOD Bills\nSelect source account\n";
                                 theUSSDResponse = GeneralMenus.displayMenu_BankAccounts(theUSSDRequest, theParam, strHeader, APIConstants.AccountType.WITHDRAWABLE, AppConstants.USSDDataType.PAY_MOD_BILLS_FROM_ACCOUNT, AppConstants.USSDDataType.PAY_MOD_BILLS_END);
                             } else {
@@ -934,7 +1267,7 @@ public interface FundsTransferMenus {
                         break;
                     }
 
-                    case PAY_MOD_BILLS_FROM_ACCOUNT:{
+                    case PAY_MOD_BILLS_FROM_ACCOUNT: {
                         String strMODBILLTypeSourceAccount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_FROM_ACCOUNT.name());
                         if (strMODBILLTypeSourceAccount != null && !strMODBILLTypeSourceAccount.isEmpty()) {
                             String strResponse = "Pay MOD Bills\nEnter amount:";
@@ -946,7 +1279,7 @@ public interface FundsTransferMenus {
                         break;
                     }
 
-                    case PAY_MOD_BILLS_AMOUNT:{
+                    case PAY_MOD_BILLS_AMOUNT: {
                         String strMobileNumber = String.valueOf(theUSSDRequest.getUSSDMobileNo());
                         String strMODBILLPaymentOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_PAYMENT_OPTION.name());
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_AMOUNT.name());
@@ -959,18 +1292,18 @@ public interface FundsTransferMenus {
                             String strSourceAccountNumber = "";
                             String strSourceAccountName = "";
 
-                            if(strMODBILLPaymentOption.equals("M-PESA")) {
-                                strSourceAccountName = "M-PESA ("+strMobileNumber+")";
+                            if (strMODBILLPaymentOption.equals("M-PESA")) {
+                                strSourceAccountName = "M-PESA (" + strMobileNumber + ")";
                             } else {
                                 String[] strSourceAccountNumberAndName = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_FROM_ACCOUNT.name()).split("\\|");
                                 strSourceAccountNumber = strSourceAccountNumberAndName[0];
-                                strSourceAccountName = "A/C: "+strSourceAccountNumberAndName[1]+" ("+strSourceAccountNumber+")";
+                                strSourceAccountName = "A/C: " + strSourceAccountNumberAndName[1] + " (" + strSourceAccountNumber + ")";
                             }
 
                             String strCharge = "\nTransaction Charge: KES 0.00";//USSDAPI.fnGetServiceChargeAmount(APIConstants.MobileBankingTransactionType.ACCOUNT_TRANSFER, strAmount);
 
                             strAmount = Utils.formatDouble(strAmount, "#,###");
-                            String strResponse = "Confirm Pay " + strMODBillBranchName + "\n" + "From " + strSourceAccountName + "\n" + "Amount: KES " + strAmount+ "\n";
+                            String strResponse = "Confirm Pay " + strMODBillBranchName + "\n" + "From " + strSourceAccountName + "\n" + "Amount: KES " + strAmount + "\n";
                             ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                             USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
                             theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithConfirmation(theUSSDRequest, AppConstants.USSDDataType.PAY_MOD_BILLS_CONFIRMATION, "NO", theArrayListUSSDSelectOption);
@@ -987,7 +1320,7 @@ public interface FundsTransferMenus {
 
                             double dblAmountEntered = Double.parseDouble(strAmount);
 
-                            if(strMODBILLPaymentOption.equals("Savings Account")) {
+                            if (strMODBILLPaymentOption.equals("Savings Account")) {
                                 if (dblAmountEntered < dblFundsTransferMinimum) {
                                     strResponse = "Pay MOD Bills\n{MINIMUM amount allowed is KES " + Utils.formatDouble(strFundsTransferMinimum, "#,###.##") + "}\nEnter amount:";
                                     theUSSDResponse = theAppMenus.displayMenu_GeneralInput(theUSSDRequest, strResponse, AppConstants.USSDDataType.PAY_MOD_BILLS_AMOUNT, USSDConstants.USSDInputType.STRING, "NO");
@@ -1052,7 +1385,7 @@ public interface FundsTransferMenus {
                         break;
                     }*/
 
-                    case PAY_MOD_BILLS_CONFIRMATION:{
+                    case PAY_MOD_BILLS_CONFIRMATION: {
                         String strConfirmation = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_CONFIRMATION.name());
                         String strMODBILLPaymentOption = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_PAYMENT_OPTION.name());
                         String strAmount = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_AMOUNT.name());
@@ -1072,7 +1405,7 @@ public interface FundsTransferMenus {
                             });
                             worker.start();*/
 
-                            if(strMODBILLPaymentOption.equals("M-PESA")) {
+                            if (strMODBILLPaymentOption.equals("M-PESA")) {
 
                                 if (theUSSDRequest.getUSSDProviderCode() == AppConstants.USSDProvider.SAFARICOM.getValue()) {
                                     strResponse = "You will be prompted by " + strMODBILLPaymentOption + " for payment\nPaybill no: " + strSender + "\n" + "Paying: " + strMODBillBranchName + "\n" + "Amount: KES " + strAmount + "\n";
@@ -1084,7 +1417,7 @@ public interface FundsTransferMenus {
                                     Double lnAmount = Utils.stringToDouble(strAmount);
                                     String strReference = strReceiver;
 
-                                    String strSessionID = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD,theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
+                                    String strSessionID = MBankingUtils.generateTransactionIDFromSession(MBankingConstants.AppTransID.USSD, theUSSDRequest.getUSSDSessionID(), theUSSDRequest.getSequence());
                                     String strTraceID = theUSSDRequest.getUSSDTraceID();
 
                                     PESAAPI thePESAAPI = new PESAAPI();
@@ -1102,9 +1435,9 @@ public interface FundsTransferMenus {
                                 APIConstants.TransactionReturnVal transactionReturnVal = APIConstants.TransactionReturnVal.SUCCESS; //theUSSDAPI.fundsTransfer(theUSSDRequest);
 
 
-                                if(transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)){
-                                    strResponse = "Dear member, your payment request to pay "+strMODBillBranchName+" has been received successfully. Please wait shortly as it's being processed.";
-                                }else {
+                                if (transactionReturnVal.equals(APIConstants.TransactionReturnVal.SUCCESS)) {
+                                    strResponse = "Dear member, your payment request to pay " + strMODBillBranchName + " has been received successfully. Please wait shortly as it's being processed.";
+                                } else {
                                     switch (transactionReturnVal) {
                                         case INCORRECT_PIN:
                                         case INVALID_ACCOUNT: {
@@ -1126,9 +1459,9 @@ public interface FundsTransferMenus {
                                     }
                                 }
 
-                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption  = new ArrayList<USSDResponseSELECTOption>();
+                                ArrayList<USSDResponseSELECTOption> theArrayListUSSDSelectOption = new ArrayList<USSDResponseSELECTOption>();
                                 USSDResponseSELECTOption.setUSSDSelectOption(theArrayListUSSDSelectOption, strResponse);
-                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.PAY_MOD_BILLS_END, "NO",theArrayListUSSDSelectOption);
+                                theUSSDResponse = theAppMenus.displayMenu_GeneralSelectWithHomeAndExit(theUSSDRequest, AppConstants.USSDDataType.PAY_MOD_BILLS_END, "NO", theArrayListUSSDSelectOption);
                             }
                         } else if (strConfirmation.equalsIgnoreCase("NO")) {
                             String strResponse = "Dear member, your MOD Bill Payment request NOT confirmed. MOD Bill Payment request NOT COMPLETED.";
@@ -1143,10 +1476,10 @@ public interface FundsTransferMenus {
 
                             String[] strSourceAccountNumberAndName = theUSSDRequest.getUSSDData().get(AppConstants.USSDDataType.PAY_MOD_BILLS_FROM_ACCOUNT.name()).split("\\|");
                             String strSourceAccountNumber = strSourceAccountNumberAndName[0];
-                            String strSourceAccountName = "A/C: "+strSourceAccountNumberAndName[1]+" ("+strSourceAccountNumber+")";
+                            String strSourceAccountName = "A/C: " + strSourceAccountNumberAndName[1] + " (" + strSourceAccountNumber + ")";
 
-                            if(strMODBILLPaymentOption.equals("M-PESA")) {
-                                strSourceAccountName = "M-PESA ("+strMobileNumber+")";
+                            if (strMODBILLPaymentOption.equals("M-PESA")) {
+                                strSourceAccountName = "M-PESA (" + strMobileNumber + ")";
                             }
 
 
@@ -1162,7 +1495,7 @@ public interface FundsTransferMenus {
                         break;
                     }
 
-                    default:{
+                    default: {
                         System.err.println("theAppMenus.displayMenu_PayMODBills() UNKNOWN PARAM ERROR : theParam = " + theParam);
 
                         String strResponse = "Pay MOD Bills\n{Sorry, an error has occurred while processing your request}";
@@ -1174,12 +1507,10 @@ public interface FundsTransferMenus {
                 }
 
             }
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             e.printStackTrace();
             System.err.println("theAppMenus.displayMenu_PayMODBills() ERROR : " + e.getMessage());
-        }
-        finally{
+        } finally {
             theAppMenus = null;
         }
         return theUSSDResponse;
@@ -1206,17 +1537,17 @@ public interface FundsTransferMenus {
 
     }
 
-    static APIUtils.ServiceProviderAccount getProviderAccountCode(String theSPProviderAccount){
+    static APIUtils.ServiceProviderAccount getProviderAccountCode(String theSPProviderAccount) {
         APIUtils.ServiceProviderAccount rVal = null;
         try {
-            LinkedList<APIUtils.ServiceProviderAccount> llSPAAccounts = APIUtils.getSPAccounts("BANK_SHORT_CODE");
-            for(APIUtils.ServiceProviderAccount serviceProviderAccount : llSPAAccounts){
+            LinkedList<APIUtils.ServiceProviderAccount> llSPAAccounts = APIUtils.getSPAccounts(SPManagerConstants.ProviderAccountType.BANK_SHORT_CODE);
+            for (APIUtils.ServiceProviderAccount serviceProviderAccount : llSPAAccounts) {
                 String strProviderIdentifier = serviceProviderAccount.getProviderAccountIdentifier();
-                if(strProviderIdentifier.equals(theSPProviderAccount)){
+                if (strProviderIdentifier.equals(theSPProviderAccount)) {
                     rVal = serviceProviderAccount;
                 }
             }
-        } catch (Exception e){
+        } catch (Exception e) {
             System.err.println("theAppMenus.getProviderAccountCode() ERROR : " + e.getMessage());
         }
         return rVal;
